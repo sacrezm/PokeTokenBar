@@ -1,0 +1,4 @@
+# False positive: the in-memory test adapter's default argument calls
+# P256.KeyAgreement.PrivateKey() to generate a fresh key at runtime.
+# This fingerprint excludes only that finding in the original trading commit.
+50607e87ef7ceabc1ba9756d78b15c10d6c99efa:Sources/PokeTokenBar/Trading/TradingIdentityCrypto.swift:generic-api-key:199
