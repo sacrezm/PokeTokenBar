@@ -21,6 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var outsideClickMonitor = OutsideClickMonitor()
     private var store: UsageStore!
     private var companion: CompanionStore!
+    private var trading: TradingFeature!
     private var updater: UpdateChecker!
     private var floatingPet: FloatingPetController!
     private let navigation = PopoverNavigation()
@@ -80,6 +81,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         LoginItem.migrateFromLegacyLoginItemIfNeeded()   // 로그인아이템 → KeepAlive 에이전트(크래시 자동 재실행)
         store = UsageStore()
         companion = CompanionStore()
+        trading = TradingFeature(
+            baseURL: URL(string: "https://poketokenbar-trade-server.triple-tap.workers.dev")!,
+            identityStore: KeychainIdentityStore(),
+            sidecar: TradingSidecar()
+        )
         updater = UpdateChecker()
         store.localizationLanguage = companion.language   // 알림 현지화용 미러 시드
         store.onRefresh = { [weak self] in self?.onStoreRefreshed() }   // 한도 로드 후 companion·사탕 지급
@@ -89,6 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             onHide: { [weak self] in self?.store.floatingPetEnabled = false }
         )   // 데스크톱 플로팅 펫(옵트인)
         Task { await updater.check() }                    // 기동 시 1회 업데이트 확인
+        Task { await trading.start() }
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
@@ -530,7 +537,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func buildPopoverContent() {
         popover.contentViewController = NSHostingController(
             rootView: PopoverView()
-                .environment(store).environment(companion).environment(updater).environment(navigation))
+                .environment(store).environment(companion).environment(updater)
+                .environment(navigation).environment(trading))
     }
 
     @objc private func togglePopover() {

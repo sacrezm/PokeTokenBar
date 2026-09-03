@@ -2,11 +2,11 @@
 
 <img src="assets/icon.png" width="128" alt="PokeTokenBar icon">
 
-# PokeTokenBar
+# PokeTokenBar — Trading Fork
 
-**Your AI coding tokens, hatched into Pokémon — right in your menu bar.**
+**Hatch Pokémon with your AI coding tokens — then trade them with friends.**
 
-[![Release](https://img.shields.io/github/v/release/chattymin/PokeTokenBar?color=444d56&label=release)](https://github.com/chattymin/PokeTokenBar/releases)
+[![Upstream release](https://img.shields.io/github/v/release/chattymin/PokeTokenBar?color=444d56&label=upstream%20release)](https://github.com/chattymin/PokeTokenBar/releases)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-0969da)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-6-f05138)](https://swift.org)
 [![Homebrew](https://img.shields.io/badge/Homebrew-cask-8957e5)](#homebrew)
@@ -19,6 +19,25 @@
 **English** · [한국어](README.ko.md) · [日本語](README.ja.md)
 
 </div>
+
+## About this fork
+
+This is an independently maintained fork of [chattymin/PokeTokenBar](https://github.com/chattymin/PokeTokenBar), adding **remote Pokémon trading**. Credit for the original app, token tracking, and Pokémon companion goes to the upstream project.
+
+The trading beta adds a **Trade** tab:
+
+- Choose a trainer name and exchange friend codes. Both players must accept the friendship before trading.
+- Connect to the same relay, invite a friend, and each offer one collected Pokémon. Both players confirm the exchange.
+- Keep each Pokémon's **Original Trainer**, even after it changes hands.
+- Trade remotely over HTTPS/WebSockets, with Pokémon details encrypted on your Mac before they reach the relay. Your usage logs, prompts, and project files are not shared.
+
+Trading currently supports graduated, non-released Pokémon, with no species restrictions or daily trade cap. Eggs and the active companion cannot be traded; trade-triggered evolutions are not implemented. Trading inventory is stored separately from the original catch history, which remains unchanged.
+
+Both players need a trading-enabled build of this fork. The upstream Homebrew package and release downloads below **do not include trading**.
+
+The default relay is `https://poketokenbar-trade-server.triple-tap.workers.dev`. Both players must use the same relay.
+
+## Original PokeTokenBar
 
 PokeTokenBar turns the AI coding tokens you're already burning — Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, Hermes Agent, Cursor, Grok CLI, Copilot CLI, Kiro CLI, Pi Agent & omp — into a growing **Pokémon companion** in your macOS menu bar. Spend tokens, hatch an egg, evolve it through its real evolution line, graduate it into your Pokédex, and start again. Underneath the companion it's a precise usage tracker — today's spend, cost, and official 5-hour / weekly limits, read straight from your local logs.
 
@@ -157,6 +176,8 @@ All read locally — no external usage CLI required. Adding a tool is one provid
 
 ## Install
 
+> The Homebrew and manual-download instructions below are for the **upstream app**, not the trading beta. Upstream updates can replace a trading-enabled build with the original app.
+
 ### Requirements
 
 macOS 14+ (Apple Silicon or Intel). That's it — token usage is read directly from local Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, Hermes Agent, Cursor, Grok CLI, Copilot CLI, Kiro CLI, Pi Agent, and omp data, with no external usage CLI required.
@@ -216,9 +237,11 @@ If a provider's logs live **outside** those built-in paths, add the folder in **
 
 ## Privacy & permissions
 
+The upstream usage-tracking behavior is described below. This fork additionally connects to your chosen trading relay when you use Trade: the relay stores trainer profiles, public keys, friendship and trade metadata, and encrypted trade payloads. Trading credentials and private keys stay in macOS Keychain. Pokémon contents are encrypted, but social metadata is visible to the relay.
+
 - **On-device first.** Token usage is read directly from local Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, Hermes Agent, Cursor, Grok CLI, Copilot CLI, Kiro CLI, Pi Agent, and omp data. The app never uploads usage or runs model turns.
 - **Outbound requests.** The app is not fully offline. It talks to twelve hosts: `pokeapi.co` and `graphql.pokeapi.co` (species/evolution), `raw.githubusercontent.com` (sprites), `api.anthropic.com` (Claude official limits), `claude.ai` (Claude official limits when you save an optional claude.ai session key in Settings — the key only, no prompts or project paths), `cursor.com` (Cursor usage summary when you are signed into Cursor locally — session credential only, no prompts or project paths), `cloudcode-pa.googleapis.com` and `daily-cloudcode-pa.googleapis.com` (Antigravity official limits) plus `oauth2.googleapis.com` (their token refresh), `status.claude.com` and `status.openai.com` (incident banner — off switch in Settings), and `api.github.com` (update check). **None of them carry your usage logs, prompts, or project paths** — only the request itself (Cursor sends your session cookie to fetch your own usage rows, same as the web dashboard).
-- **Keychain (optional).** The Claude OAuth credential is read **only when you press a refresh button** (Settings, or the limits row in the popover). Automatic polling never touches the Keychain, so it never raises a password prompt; when `~/.claude/.credentials.json` is present, each poll re-reads it, so an in-place `/login` to another account is picked up without pressing refresh. The token is held in memory only — the app creates no Keychain item of its own. If there is no credentials file, limits stay on the cached token until it expires or you refresh. Turn it off in Settings — the limits section simply hides.
+- **Keychain (optional for Claude limits).** The Claude OAuth credential is read **only when you press a refresh button** (Settings, or the limits row in the popover). Automatic polling for these limits never touches the Keychain, so it never raises a password prompt; when `~/.claude/.credentials.json` is present, each poll re-reads it, so an in-place `/login` to another account is picked up without pressing refresh. This OAuth token is held in memory only. If there is no credentials file, limits stay on the cached token until it expires or you refresh. Turn it off in Settings — the limits section simply hides. Trading uses separate Keychain items.
 - **Pokémon assets** are fetched at runtime from PokéAPI and cached only under `~/Library/Application Support/PokeTokenBar/`. The app binary and its release artifacts contain no Pokémon assets.
 
 ## Contributors

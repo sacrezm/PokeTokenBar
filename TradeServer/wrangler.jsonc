@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "poketokenbar-trade-server",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-03",
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [{ "name": "TRADE_DB", "class_name": "TradeDatabase" }]
+  },
+  "migrations": [{ "tag": "v1-sqlite", "new_sqlite_classes": ["TradeDatabase"] }]
+}

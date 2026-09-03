@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-enum PopoverTab { case home, shop, bag, collection }
+enum PopoverTab { case home, shop, bag, collection, trade }
 
 /// 팝오버 치수의 단일 소스. 자식이 쓸 수 있는 폭을 알아야 할 때 이 값을 쓴다 — 넘치는 자식이
 /// 부모 폭을 부풀리므로 GeometryReader 로 재면 순환한다.
@@ -55,6 +55,7 @@ struct PopoverView: View {
     @Environment(CompanionStore.self) private var companion
     @Environment(UpdateChecker.self) private var updater
     @Environment(PopoverNavigation.self) private var nav
+    @Environment(TradingFeature.self) private var trading
 
     private var l: L { companion.l }
 
@@ -112,11 +113,14 @@ struct PopoverView: View {
                 Text(l.shop).tag(PopoverTab.shop)
                 Text(l.bag).tag(PopoverTab.bag)
                 Text(l.collection).tag(PopoverTab.collection)
+                Text("Trade").tag(PopoverTab.trade)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
 
-            if nav.tab == .collection {
+            if nav.tab == .trade {
+                TradingView().environment(trading).environment(companion)
+            } else if nav.tab == .collection {
                 CollectionView(store: companion, navigation: nav)
             } else if nav.tab == .bag {
                 BagView(store: companion, nav: nav)
