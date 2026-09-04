@@ -22,6 +22,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var store: UsageStore!
     private var companion: CompanionStore!
     private var trading: TradingFeature!
+    private let tradingNotifications = TradingNotifications()
     private var updater: UpdateChecker!
     private var floatingPet: FloatingPetController!
     private let navigation = PopoverNavigation()
@@ -95,7 +96,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             onHide: { [weak self] in self?.store.floatingPetEnabled = false }
         )   // 데스크톱 플로팅 펫(옵트인)
         Task { await updater.check() }                    // 기동 시 1회 업데이트 확인
-        Task { await trading.start() }
+        tradingNotifications.onOpenTrade = { [weak self] in
+            guard let self else { return }
+            if !self.popover.isShown { self.togglePopover() }
+            self.navigation.showSettings = false
+            self.navigation.tab = .trade
+            self.trading.markActivityRead()
+        }
+        tradingNotifications.install()
+        trading.onActivity = { [weak self] activity in self?.tradingNotifications.send(activity) }
+        Task {
+            await trading.start()
+            trading.startBackgroundUpdates()
+        }
 
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem.button {
@@ -113,6 +126,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.delegate = self   // didShow: outside-click monitor; didClose: 호스팅 해제 + 모니터 제거
 
         observeStore()
+        observeTradingActivity()
         observeCompanionSprite()
         observeDisplaySleep()
         observePowerState()
@@ -173,7 +187,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
     private func applyState() {
         guard let button = statusItem.button else { return }
-        Self.applyMenuText(store.menuLines, to: button)
+        var lines = store.menuLines
+        if trading.hasUnreadActivity {
+            if lines.isEmpty { lines = ["🔔"] } else { lines[0] += " 🔔" }
+        }
+        Self.applyMenuText(lines, to: button)
+        button.toolTip = trading.hasUnreadActivity ? "New trading activity — click to open Trade" : nil
         needsSpriteLayout = true   // 텍스트 길이가 바뀌면 버튼 폭이 변해 이미지 자리도 움직인다
         // stale 시각 dim 제거 — 슬립/런치 직후 refresh 완료 전 몇 초간 회색으로 보여 '고장/비활성'
         // 으로 오인되던 것 방지(사용자 반복 지적). 데이터가 오래됐다는 신호가 필요하면 팝오버
@@ -185,6 +204,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         syncMenuAnimation()   // 가시성 상태 주기적 재평가(occlusion 이 잘못 멈춰도 자가 복구)
         // 같은 프레임이면 setStatusImage 가 diff-gate 로 조기 반환해 재배치를 못 했을 수 있다.
         if needsSpriteLayout { layoutSpriteLayer() }
+    }
+
+    private func observeTradingActivity() {
+        withObservationTracking {
+            _ = trading.hasUnreadActivity
+        } onChange: { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                self.applyState()
+                self.observeTradingActivity()
+            }
+        }
     }
 
     /// 메뉴바 버튼 텍스트 반영 — 1줄이면 기본 title(13pt), 2줄 이상이면 세로 스택.
@@ -547,6 +578,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             popover.performClose(nil)   // 해제·메뉴 애니메이션 재개는 popoverDidClose 에서
         } else {
             navigation.reset()   // 닫혔다 열리면 항상 Home 으로 (설정 화면 잔류 방지)
+            if trading.hasUnreadActivity { navigation.tab = .trade }
             buildPopoverContent()   // 열 때 호스팅 트리 생성(닫힐 때 해제)
             // LSUIElement 앱이 비활성이면 팝오버 내부 버튼 클릭이 무시됨 — show 전에 활성화 보장
             NSApp.activate(ignoringOtherApps: true)

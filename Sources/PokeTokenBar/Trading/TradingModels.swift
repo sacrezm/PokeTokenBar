@@ -172,8 +172,8 @@ enum ReceiptApplyResult: Equatable, Sendable {
 }
 
 /// Versioned, deliberately small local sidecar.  `heldInventory` is the
-/// current local ownership view; `receivedInventory` is an append-only record
-/// of received payloads.  A received Pokémon is in both collections while it
+/// current local ownership view; `receivedInventory` keeps the latest received
+/// form of each individual, including trade evolution. A Pokémon is in both while it
 /// is held, and leaves only `heldInventory` when re-traded.
 struct TradingSidecarState: Codable, Equatable, Sendable {
     static let currentSchemaVersion = 1

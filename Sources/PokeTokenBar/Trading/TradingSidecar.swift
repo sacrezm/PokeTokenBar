@@ -109,6 +109,7 @@ actor TradingSidecar {
 
     func setFriends(_ friends: [TradingFriend]) throws {
         var next = try state()
+        guard next.friendCache != friends else { return }
         next.friendCache = friends
         try commit(next)
     }
@@ -144,14 +145,19 @@ actor TradingSidecar {
         }
 
         if let received = next.receivedInventory.first(where: { $0.creatureID == receipt.incoming.creatureID }),
-           received != receipt.incoming {
+           !TradeEvolution.isReturning(receipt.incoming, previously: received) {
             throw TradingSidecarError.duplicateCreature(receipt.incoming.creatureID)
         }
 
+        // Evolve exactly once, in the same durable transaction as ownership.
+        let incoming = TradeEvolution.received(receipt.incoming,
+                                               exchangedFor: next.heldInventory[outgoingIndex].speciesID)
         next.heldInventory.remove(at: outgoingIndex)
-        next.heldInventory.append(receipt.incoming)
-        if !next.receivedInventory.contains(where: { $0.creatureID == receipt.incoming.creatureID }) {
-            next.receivedInventory.append(receipt.incoming)
+        next.heldInventory.append(incoming)
+        if let index = next.receivedInventory.firstIndex(where: { $0.creatureID == incoming.creatureID }) {
+            next.receivedInventory[index] = incoming
+        } else {
+            next.receivedInventory.append(incoming)
         }
         next.transferredIDs.insert(receipt.outgoingCreatureID)
         next.appliedReceiptIDs.insert(receipt.receiptID)

@@ -3,18 +3,24 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="2.5.3"
+VERSION="${PTB_VERSION:-2.5.3}"
+[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version: $VERSION" >&2; exit 1; }
 APP_NAME="PokeTokenBar"
 BUILD_DIR="build"
 APP="$BUILD_DIR/$APP_NAME.app"
 
 echo "==> swift build -c release"
-swift build -c release
+BUILD_ARGS=(-c release)
+if [[ "${PTB_UNIVERSAL:-0}" == "1" ]]; then
+    BUILD_ARGS+=(--arch arm64 --arch x86_64)
+fi
+swift build "${BUILD_ARGS[@]}"
+BIN_DIR=$(swift build "${BUILD_ARGS[@]}" --show-bin-path)
 
 echo "==> $APP 조립"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp ".build/release/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
+cp "$BIN_DIR/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
 # 심볼 strip — 릴리스 바이너리 1.84MB → 0.80MB(-57%). codesign 전에 수행(서명 무효화 방지).
 strip -rSTx "$APP/Contents/MacOS/$APP_NAME" 2>/dev/null || strip -rSx "$APP/Contents/MacOS/$APP_NAME"
 cp assets/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
@@ -81,6 +87,13 @@ else
     echo "   ('$SIGN_IDENTITY' 유효 codesigning identity 없음 → ad-hoc 서명 — 로컬 개발용)"
     echo "   반복 Keychain 허용 프롬프트를 줄이려면 ./scripts/create-signing-cert.sh 실행 후 다시 빌드하세요."
     codesign --force -s - "$APP"
+fi
+
+# Release packaging must not interrupt or replace the developer's running app.
+codesign --verify --strict "$APP"
+if [[ "${PTB_INSTALL:-1}" == "0" ]]; then
+    echo "Built: $APP (not installed)"
+    exit 0
 fi
 
 echo "==> 기존 인스턴스 종료 + /Applications 설치"

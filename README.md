@@ -6,7 +6,7 @@
 
 **Hatch Pokémon with your AI coding tokens — then trade them with friends.**
 
-[![Upstream release](https://img.shields.io/github/v/release/chattymin/PokeTokenBar?color=444d56&label=upstream%20release)](https://github.com/chattymin/PokeTokenBar/releases)
+[![Trading fork release](https://img.shields.io/github/v/release/sacrezm/PokeTokenBar?color=444d56&label=trading%20release)](https://github.com/sacrezm/PokeTokenBar/releases)
 [![macOS](https://img.shields.io/badge/macOS-14%2B-0969da)](https://www.apple.com/macos/)
 [![Swift](https://img.shields.io/badge/Swift-6-f05138)](https://swift.org)
 [![Homebrew](https://img.shields.io/badge/Homebrew-cask-8957e5)](#homebrew)
@@ -31,11 +31,23 @@ The trading beta adds a **Trade** tab:
 - Keep each Pokémon's **Original Trainer**, even after it changes hands.
 - Trade remotely over HTTPS/WebSockets, with Pokémon details encrypted on your Mac before they reach the relay. Your usage logs, prompts, and project files are not shared.
 
-Trading currently supports graduated, non-released Pokémon, with no species restrictions or daily trade cap. Eggs and the active companion cannot be traded; trade-triggered evolutions are not implemented. Trading inventory is stored separately from the original catch history, which remains unchanged.
+Trading currently supports graduated, non-released Pokémon, with no species restrictions or daily trade cap. Eggs and the active companion cannot be traded. Trading inventory is stored separately from the original catch history, which remains unchanged.
 
-Both players need a trading-enabled build of this fork. The upstream Homebrew package and release downloads below **do not include trading**.
+**Trade evolutions:** receiving Kadabra, Machoke, Graveler, Haunter, Boldore or Gurdurr evolves it automatically. Karrablast and Shelmet evolve only when exchanged for each other. A short before/after sprite transformation and a named confirmation show the evolution; Reduce Motion skips the transformation. Original Trainer, shiny status, nature and individual identity are preserved. Evolution is saved atomically with the trade and never repeated on receipt retries. These rules follow the [PokéAPI trade evolution data](https://github.com/PokeAPI/pokeapi/blob/master/data/v2/csv/pokemon_evolution.csv).
+
+Held-item trade evolutions are not included because this app has no held-item system. Hatch-generation preferences do not restrict trade evolutions. The receiving player needs an updated build; already-applied trades are not retroactively evolved.
+
+Both players need a trading-enabled build of this fork. The upstream Homebrew package **does not include trading**.
 
 The default relay is `https://poketokenbar-trade-server.triple-tap.workers.dev`. Both players must use the same relay.
+
+Received Pokémon appear in Collection and in a received-trades section of the catch log, including their Original Trainer. Completed exchanges show a sprite celebration and confirmation. While the app is running, incoming friend/trade requests are checked every 15 seconds (with backoff when offline), even with the popover closed. A menu-bar bell marks unread activity; macOS banners require notification permission and respect Focus settings. Click the bell or notification to open Trade.
+
+Collection opens on **Owned**: one row per Pokémon currently held, in its current form, including the companion being raised and received Pokémon. Earlier evolution stages do not count as extra Pokémon; two individuals of the same species still count as two. Released and traded-away Pokémon are excluded. An incubating egg is shown separately, outside the count. **Pokédex** and **Catch log** remain available as history tabs.
+
+Click an Owned Pokémon to open its detail page: Original Trainer, species/generation, nature, rarity, shiny status, current status, saved collection date and recorded individual/trainer IDs. Missing information in older saves is labelled “Not recorded”; the collection date is not presented as a hatch or trade date. Details use existing local records, with no additional server or invented battle stats.
+
+In **Settings → Pokémon generations**, select one or more of Gen 1–5 for future hatches. All are enabled by default. The filter applies to the existing hatchable-species catalog, including premium eggs and fallback selection; normal evolutions, existing Pokémon and received trades are unaffected.
 
 ## Original PokeTokenBar
 
@@ -176,13 +188,23 @@ All read locally — no external usage CLI required. Adding a tool is one provid
 
 ## Install
 
-> The Homebrew and manual-download instructions below are for the **upstream app**, not the trading beta. Upstream updates can replace a trading-enabled build with the original app.
+Download the app ZIP from [this fork's releases](https://github.com/sacrezm/PokeTokenBar/releases), unzip it, and drag `PokeTokenBar.app` into `/Applications`. Use the built app ZIP, not GitHub's automatic source-code ZIP. Until the first fork release is published, build from source below.
+
+### Updates for this fork
+
+The app checks **sacrezm/PokeTokenBar**, never upstream, at launch and when you open the popover (at most once every 30 minutes). A newer stable release appears in the existing update banner. **Download** opens its GitHub release; quit the app, download/unzip the new app, replace it in `/Applications`, and reopen it. Pokémon, trainer identity and preferences live outside the app bundle and are retained. Do not use an app-cleaner/uninstaller that deletes application data.
+
+Use **Settings → Updates → Check now** to check manually, including a version you previously dismissed. No automatic installer, background updater service, GitHub login, or separate hosting is needed. Existing builds that still check upstream need this fork-channel build installed once manually.
+
+Maintainers: see [the small release workflow](docs/reference/release-workflow.md). Publishing a GitHub Release with a higher version makes it discoverable; a push to `main` alone does not.
 
 ### Requirements
 
 macOS 14+ (Apple Silicon or Intel). That's it — token usage is read directly from local Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, Hermes Agent, Cursor, Grok CLI, Copilot CLI, Kiro CLI, Pi Agent, and omp data, with no external usage CLI required.
 
-### Homebrew
+### Upstream Homebrew (no trading)
+
+Do not use this package to update the trading fork; it replaces it with upstream.
 
 ```bash
 brew install --cask chattymin/tap/poke-token-bar
@@ -192,7 +214,7 @@ ad-hoc/self-signed; the cask strips the quarantine attribute on install.
 
 ### Manual install (without Homebrew)
 
-Prefer not to use Homebrew? Download `PokeTokenBar.zip` from the [latest release](https://github.com/chattymin/PokeTokenBar/releases/latest), unzip it, and drag `PokeTokenBar.app` into `/Applications`.
+Download the app ZIP from [this fork's releases](https://github.com/sacrezm/PokeTokenBar/releases), unzip it, and drag `PokeTokenBar.app` into `/Applications`.
 
 Because the app is ad-hoc/self-signed (not notarized under an Apple Developer account), Gatekeeper shows an "unidentified developer" warning on first launch. Clear it once, either way:
 

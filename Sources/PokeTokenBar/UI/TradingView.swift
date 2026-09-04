@@ -24,6 +24,7 @@ struct TradingView: View {
         .task {
             if serverURL.isEmpty { serverURL = trading.serverURL }
             await reload()
+            trading.markActivityRead()
         }
     }
 
@@ -165,6 +166,10 @@ struct TradingView: View {
         VStack(alignment: .leading, spacing: 8) {
             Divider()
             Text("Trade with \(trading.activeTrade?.peer.trainerName ?? "friend")").font(.headline)
+            if let receipt = trading.activeTrade?.receipt {
+                Label("Received \(trading.receivedPokemon(for: receipt).displayName)", systemImage: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+            } else {
             if trading.heldInventory.isEmpty {
                 Text("No graduated Pokémon available.").font(.caption).foregroundStyle(.secondary)
             } else {
@@ -195,6 +200,7 @@ struct TradingView: View {
             }
             Text(trading.activeTrade?.status.rawValue.capitalized ?? "")
                 .font(.caption2).foregroundStyle(.secondary)
+            }
         }
     }
 
@@ -218,6 +224,60 @@ struct TradingView: View {
             defer { busy = false }
             do { try await operation() }
             catch { message = String(describing: error) }
+        }
+    }
+}
+
+@MainActor
+struct TradeCompletionView: View {
+    let receipt: TradeReceipt
+    var received: TradePokemon? = nil
+    let onDismiss: () -> Void
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var arrived = false
+    @State private var evolved = false
+
+    private var result: TradePokemon { received ?? receipt.incoming }
+    private var hasEvolution: Bool { result.speciesID != receipt.incoming.speciesID }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            ZStack {
+                SpriteView(speciesID: receipt.incoming.speciesID, size: 46,
+                           animated: !reduceMotion, shiny: receipt.incoming.isShiny)
+                    .opacity(hasEvolution && evolved ? 0 : 1)
+                    .scaleEffect(hasEvolution && evolved && !reduceMotion ? 0.5 : 1)
+                if hasEvolution {
+                    SpriteView(speciesID: result.speciesID, size: 46,
+                               animated: !reduceMotion, shiny: result.isShiny)
+                        .opacity(evolved ? 1 : 0)
+                        .scaleEffect(evolved || reduceMotion ? 1 : 0.5)
+                }
+            }
+                .frame(width: 46, height: 46)
+                .shadow(color: hasEvolution && !evolved ? .cyan.opacity(0.8) : .clear, radius: 8)
+                .scaleEffect(arrived ? 1 : 0.5)
+                .opacity(arrived ? 1 : 0)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(hasEvolution ? (evolved ? "Trade evolution!" : "Evolving…") : "Trade complete!")
+                    .font(.callout.bold())
+                Text(hasEvolution
+                     ? "\(receipt.incoming.displayName) evolved into \(result.displayName)!"
+                     : "You received \(result.displayName)!").font(.caption)
+            }
+            Spacer(minLength: 0)
+            Button(action: onDismiss) { Image(systemName: "xmark") }
+                .buttonStyle(.plain).accessibilityLabel("Dismiss trade confirmation")
+        }
+        .padding(8)
+        .background(Color.green.opacity(0.15), in: RoundedRectangle(cornerRadius: 10))
+        .task(id: receipt.receiptID) {
+            arrived = false
+            evolved = reduceMotion
+            withAnimation(reduceMotion ? nil : .spring(response: 0.5, dampingFraction: 0.6)) { arrived = true }
+            guard hasEvolution, !reduceMotion else { return }
+            do { try await Task.sleep(for: .milliseconds(900)) } catch { return }
+            withAnimation(.easeInOut(duration: 0.6)) { evolved = true }
         }
     }
 }

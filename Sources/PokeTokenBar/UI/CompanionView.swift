@@ -700,18 +700,19 @@ struct RarityTally: View {
 @MainActor
 struct DexSummaryHeader: View {
     let store: CompanionStore
+    var received: [TradePokemon] = []
     let selected: Rarity?                  // nil = 필터 없음(전체)
     let onSelect: (Rarity) -> Void         // 캡슐 탭 → 토글
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
                 Text(store.l.catchLogTitle).font(.callout.weight(.semibold))
-                Text(store.l.dexTotal(store.dexEntries.count))
+                Text(store.l.dexTotal(store.dexEntries.count + received.count))
                     .font(.caption2).foregroundStyle(.secondary)
             }
             HStack(spacing: 4) {
                 ForEach(rarityDisplayOrder, id: \.self) { r in
-                    let count = store.dexCount(r)
+                    let count = store.dexCount(r) + received.filter { $0.rarity == r }.count
                     Button { onSelect(r) } label: {
                         RarityTally(
                             label: store.l.rarityLabel(r), count: count, color: rarityColor(r),
@@ -726,17 +727,16 @@ struct DexSummaryHeader: View {
     }
 }
 
-/// 컬렉션 탭 — 도감과 포획 로그를 하위 세그먼트로 전환한다.
-///
-/// 두 화면은 같은 데이터를 다른 축으로 본다:
-///  - **도감**: 종 1개 = 1칸. 같은 라인을 여러 번 키워도 한 칸으로 접힌다(종 정보만).
-///  - **로그**: 개체 1마리 = 1행. 같은 라인이 여러 행으로 나오는 게 정상 — 성격·획득 시각처럼
-///    개체에 딸린 정보는 여기에만 있다.
-/// 상위 탭(PopoverTab)은 그대로 4개 — 세그먼트 폭(332/2)이 넉넉해 탭바를 늘릴 필요가 없다.
+/// Owned shows current individuals; Pokédex and Catch log retain species/catch history.
 @MainActor
 struct CollectionView: View {
     let store: CompanionStore
     let navigation: PopoverNavigation
+    var received: [TradePokemon] = []
+    var held: [TradePokemon] = []
+    var transferredIDs: Set<String> = []
+    private var heldIDs: Set<String> { Set(held.map(\.creatureID)) }
+    @State private var selectedOwnedID: String?
     /// 로그 전용 희귀도 필터. 도감은 개수 단위가 종이라 자기 필터를 따로 갖는다(DexGridView).
     @State private var selectedRarity: Rarity?
 
@@ -755,19 +755,82 @@ struct CollectionView: View {
 
     var body: some View {
         @Bindable var nav = navigation
-        if store.dexEntries.isEmpty {
-            emptyState   // 둘 다 비어 있으니 세그먼트를 그리지 않는다
-        } else {
-            VStack(alignment: .leading, spacing: 8) {
-                Picker("", selection: $nav.showingCollectionLog) {
-                    Text(store.l.dexTitle).tag(false)
-                    Text(store.l.catchLogTitle).tag(true)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                if nav.showingCollectionLog { catchLog } else { DexGridView(store: store) }
+        VStack(alignment: .leading, spacing: 8) {
+            Picker("Collection", selection: $nav.collectionTab) {
+                Text("Owned").tag(CollectionTab.owned)
+                Text(store.l.dexTitle).tag(CollectionTab.pokedex)
+                Text(store.l.catchLogTitle).tag(CollectionTab.catchLog)
             }
-            .frame(height: Self.contentHeight)
+            .pickerStyle(.segmented)
+            .labelsHidden()
+            switch nav.collectionTab {
+            case .owned: ownedCollection
+            case .pokedex:
+                DexGridView(store: store, received: received)
+            case .catchLog: catchLog
+            }
+        }
+        .frame(height: Self.contentHeight)
+        .onChange(of: nav.collectionTab) { selectedOwnedID = nil }
+    }
+
+    private var ownedCollection: some View {
+        let entries = store.dexEntries
+        let owned = OwnedCollection.pokemon(entries: entries,
+                                             activeID: entries.first(where: store.isActiveDexEntry)?.id,
+                                             held: held, transferredIDs: transferredIDs, language: store.language)
+        return Group {
+            if let selected = owned.first(where: { $0.id == selectedOwnedID }) {
+                OwnedPokemonDetailView(pokemon: selected, language: store.language,
+                                       onBack: { selectedOwnedID = nil })
+            } else {
+                ownedList(owned)
+            }
+        }
+        .onChange(of: owned.map(\.id)) {
+            if !owned.contains(where: { $0.id == selectedOwnedID }) { selectedOwnedID = nil }
+        }
+        .task { await store.backfillMissingDexNames() }
+    }
+
+    private func ownedList(_ owned: [OwnedCollection.Pokemon]) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("\(owned.count) Pokémon owned").font(.callout.bold())
+            Text("One per Pokémon, in its current form. Pokédex keeps your species history.")
+                .font(.caption2).foregroundStyle(.secondary)
+            if store.isEgg {
+                Text("🥚 Egg incubating · not included in the count")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if owned.isEmpty {
+                Text("No Pokémon owned yet.").font(.caption).foregroundStyle(.secondary)
+            }
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 8) {
+                    ForEach(owned) { pokemon in
+                        Button { selectedOwnedID = pokemon.id } label: {
+                            HStack(spacing: 10) {
+                                SpriteView(speciesID: pokemon.speciesID, size: 44, shiny: pokemon.isShiny)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(pokemon.name + (pokemon.isShiny ? " ✨" : ""))
+                                        .font(.callout.weight(.semibold))
+                                    Text(pokemon.isRaising ? "Raising now" : pokemon.originalTrainer.map { "Original Trainer: \($0)" } ?? "In collection")
+                                        .font(.caption2).foregroundStyle(.secondary)
+                                }
+                                Spacer(minLength: 0)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption2).foregroundStyle(.secondary)
+                            }
+                            .padding(6)
+                            .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Details for \(pokemon.name)")
+                    }
+                }
+            }
+            .frame(maxHeight: .infinity)
         }
     }
 
@@ -775,7 +838,7 @@ struct CollectionView: View {
     /// (아래로 내리는 중에도 희귀도 필터를 토글할 수 있다).
     private var catchLog: some View {
         VStack(alignment: .leading, spacing: 8) {
-            DexSummaryHeader(store: store, selected: selectedRarity) { r in
+            DexSummaryHeader(store: store, received: received, selected: selectedRarity) { r in
                 withAnimation(.easeInOut(duration: 0.15)) {
                     selectedRarity = (selectedRarity == r) ? nil : r
                 }
@@ -786,6 +849,23 @@ struct CollectionView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
                         Color.clear.frame(height: 0).id("dexTop")   // 스크롤 최상단 앵커
+                        if !received.isEmpty {
+                            Text("Received in trades · \(received.count)").font(.caption.weight(.semibold))
+                            ForEach(received.filter { selectedRarity == nil || $0.rarity == selectedRarity }) { pokemon in
+                                HStack(spacing: 8) {
+                                    SpriteView(speciesID: pokemon.speciesID, size: 40, shiny: pokemon.isShiny)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(pokemon.displayName).font(.caption.weight(.semibold))
+                                        Text("Original Trainer: \(pokemon.originalTrainer.trainerName)")
+                                            .font(.caption2).foregroundStyle(.secondary)
+                                        Text(heldIDs.contains(pokemon.creatureID) ? "Received · In collection" : "Received · Traded away")
+                                            .font(.caption2).foregroundStyle(.secondary)
+                                    }
+                                    Spacer()
+                                }
+                            }
+                            Divider()
+                        }
                         ForEach(visibleEntries) { entry in
                             DexEntryRow(store: store, entry: entry)
                         }
@@ -800,18 +880,6 @@ struct CollectionView: View {
         }
     }
 
-    /// 빈 도감 — 안내 마스코트(피카츄, PokéAPI) + 포켓몬을 모으라는 문구.
-    private var emptyState: some View {
-        VStack(spacing: 10) {
-            SpriteView(speciesID: 25, size: 96, animated: true)   // 피카츄(움직임)
-            Text(store.l.dexEmptyTitle).font(.callout.weight(.semibold))
-            Text(store.l.dexEmptyHint)
-                .font(.caption).foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 28)
-    }
 }
 
 /// 도감 하단의 대표 설정 액션. 문구는 툴팁·접근성에 유지하되 시각적으로는 아이콘만 써서,
@@ -848,6 +916,7 @@ struct RepresentativeFooterButton: View {
 @MainActor
 private struct DexGridView: View {
     let store: CompanionStore
+    var received: [TradePokemon] = []
     @State private var selectedRarity: Rarity?
     @State private var page = 0
 
@@ -861,7 +930,7 @@ private struct DexGridView: View {
 
     var body: some View {
         // 종별 집계는 한 번만 훑고 하위로 넘긴다 — 칸마다 재집계하면 도감이 O(칸×도감) 이 된다.
-        let all = store.dexSpecies
+        let all = TradingCollectionProjection.species(original: store.dexSpecies, received: received)
         let visible = selectedRarity.map { r in all.filter { $0.rarity == r } } ?? all
         let pageCount = max(1, (visible.count + Self.pageSize - 1) / Self.pageSize)
         let current = min(page, pageCount - 1)   // 보유 종이 줄어든 경우(필터 등) 범위 방어
@@ -951,6 +1020,7 @@ private struct DexGridView: View {
                                            isRepresentative: isRepresentative) {
                     _ = store.setRepresentativeSpeciesID(isRepresentative ? nil : sel.id)
                 }
+                .disabled(!store.dexSpecies.contains { $0.id == sel.id })
             }
             Spacer(minLength: 4)
             if pageCount > 1 {

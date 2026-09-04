@@ -2,6 +2,7 @@ import AppKit
 import SwiftUI
 
 enum PopoverTab { case home, shop, bag, collection, trade }
+enum CollectionTab { case owned, pokedex, catchLog }
 
 /// 팝오버 치수의 단일 소스. 자식이 쓸 수 있는 폭을 알아야 할 때 이 값을 쓴다 — 넘치는 자식이
 /// 부모 폭을 부풀리므로 GeometryReader 로 재면 순환한다.
@@ -21,7 +22,7 @@ final class PopoverNavigation {
     var showSettings = false
     var tab: PopoverTab = .home
     /// 일반적인 컬렉션 재진입에는 마지막 세그먼트를 유지하되, 대표 포켓몬 선택 진입점은 도감으로 강제한다.
-    var showingCollectionLog = false
+    var collectionTab: CollectionTab = .owned
     /// 프로바이더 탭 선택 — reset() 대상이 아님(팝오버를 다시 열어도 보던 서비스 유지).
     var providerID: String?
     /// 설정을 열 때 고급 섹션을 펼친 채로 시작할지. 세션 키 행이 접힌 disclosure 안에 살아서,
@@ -44,7 +45,7 @@ final class PopoverNavigation {
     /// 컬렉션 세그먼트를 도감으로 명시해, 직전에 포획 로그를 봤어도 선택 액션이 있는 화면을 연다.
     func openRepresentativeDex() {
         showSettings = false
-        showingCollectionLog = false
+        collectionTab = .pokedex
         tab = .collection
     }
 }
@@ -88,15 +89,10 @@ struct PopoverView: View {
                 Text(l.updateAvailable(update.version, current: updater.currentVersion))
                     .font(.caption)
                 Spacer()
-                if updater.isUpdating {
-                    Text(l.updating).font(.caption2).foregroundStyle(.secondary)
-                    ProgressView().controlSize(.small)
-                } else {
-                    Button(l.updateButton) { updater.applyUpdate() }
-                        .buttonStyle(.borderedProminent).controlSize(.small)
-                    Button(l.updateLater) { updater.skipCurrent() }
-                        .buttonStyle(.borderless).controlSize(.small).foregroundStyle(.secondary)
-                }
+                Button("Download") { updater.applyUpdate() }
+                    .buttonStyle(.borderedProminent).controlSize(.small)
+                Button(l.updateLater) { updater.skipCurrent() }
+                    .buttonStyle(.borderless).controlSize(.small).foregroundStyle(.secondary)
             }
             .padding(8)
             .background(Color.accentColor.opacity(0.12))
@@ -118,10 +114,17 @@ struct PopoverView: View {
             .pickerStyle(.segmented)
             .labelsHidden()
 
+            if let receipt = trading.completion {
+                TradeCompletionView(receipt: receipt, received: trading.receivedPokemon(for: receipt),
+                                    onDismiss: trading.dismissCompletion)
+                    .id(receipt.receiptID)
+            }
             if nav.tab == .trade {
                 TradingView().environment(trading).environment(companion)
             } else if nav.tab == .collection {
-                CollectionView(store: companion, navigation: nav)
+                CollectionView(store: companion, navigation: nav,
+                               received: trading.receivedInventory,
+                               held: trading.heldInventory, transferredIDs: trading.transferredIDs)
             } else if nav.tab == .bag {
                 BagView(store: companion, nav: nav)
             } else if nav.tab == .shop {

@@ -544,6 +544,7 @@ struct CompanionState: Codable, Sendable {
     var eggTier: Rarity?
     // 알 상태에서 미리 롤해둔 부화 종(프리패칭) — 부화 순간 네트워크 딜레이 제거. 재시작에도 유지.
     var pendingHatchID: Int?
+    var hatchGenerations: Set<Int> = HatchGeneration.all
     /// 오늘 사용량 적립 기준값 — 프로바이더별로 독립 관리한다.
     ///
     /// `nil`은 aggregate `claimedTodayTokens`만 가지고 있던 구버전 세이브가 아직 첫 유효
@@ -585,6 +586,9 @@ struct CompanionState: Codable, Sendable {
         // 모르는 rawValue 는 nil(보증 없음)로 강등 — 관대 디코딩의 안전한 방향(있지도 않은 보증을 만들지 않는다).
         eggTier            = c.lenientOptional(Rarity.self, forKey: .eggTier)
         pendingHatchID     = c.lenientOptional(Int.self, forKey: .pendingHatchID)
+        let selected = c.lenient(Set<Int>.self, forKey: .hatchGenerations, default: HatchGeneration.all)
+            .intersection(HatchGeneration.all)
+        hatchGenerations = selected.isEmpty ? HatchGeneration.all : selected
         if c.contains(.claimedTodayTokensByProvider) {
             claimedTodayTokensByProvider = c.lenient([String: Int].self,
                                                       forKey: .claimedTodayTokensByProvider,

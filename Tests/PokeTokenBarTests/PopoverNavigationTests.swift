@@ -9,30 +9,30 @@ final class PopoverNavigationTests: XCTestCase {
         let nav = PopoverNavigation()
         XCTAssertFalse(nav.showSettings)
         XCTAssertEqual(nav.tab, .home)
-        XCTAssertFalse(nav.showingCollectionLog)
+        XCTAssertEqual(nav.collectionTab, .owned)
     }
 
     func testResetReturnsToHomeFromSettings() {
         let nav = PopoverNavigation()
         nav.showSettings = true
         nav.tab = .collection
-        nav.showingCollectionLog = true
+        nav.collectionTab = .catchLog
         nav.reset()
         XCTAssertFalse(nav.showSettings)   // 설정 화면 닫힘
         XCTAssertEqual(nav.tab, .home)     // 탭도 Home 으로
-        XCTAssertTrue(nav.showingCollectionLog, "일반 재진입은 사용자가 보던 컬렉션 세그먼트를 유지")
+        XCTAssertEqual(nav.collectionTab, .catchLog, "Keep the last selected collection tab within the session")
     }
 
     func testOpenRepresentativeDexLeavesSettingsForCollection() {
         let nav = PopoverNavigation()
         nav.showSettings = true
-        nav.showingCollectionLog = true
+        nav.collectionTab = .catchLog
 
         nav.openRepresentativeDex()
 
         XCTAssertFalse(nav.showSettings)
         XCTAssertEqual(nav.tab, .collection)
-        XCTAssertFalse(nav.showingCollectionLog, "포획 로그에서 설정을 열었어도 대표 선택은 도감으로 이동")
+        XCTAssertEqual(nav.collectionTab, .pokedex, "Representative selection still opens the Pokédex")
     }
 }
 
