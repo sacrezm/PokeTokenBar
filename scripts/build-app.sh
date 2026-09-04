@@ -16,10 +16,17 @@ if [[ "${PTB_UNIVERSAL:-0}" == "1" ]]; then
 fi
 swift build "${BUILD_ARGS[@]}"
 BIN_DIR=$(swift build "${BUILD_ARGS[@]}" --show-bin-path)
+SPARKLE_FRAMEWORK=".build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework"
+[[ -d "$SPARKLE_FRAMEWORK" ]] || { echo "Sparkle framework missing" >&2; exit 1; }
+[[ -f scripts/sparkle-public-key.txt ]] || { echo "Configure the public Sparkle update key first; see RELEASE.md" >&2; exit 1; }
+SPARKLE_PUBLIC_KEY=$(tr -d '\r\n' < scripts/sparkle-public-key.txt)
+[[ "$SPARKLE_PUBLIC_KEY" =~ ^[A-Za-z0-9+/]{43}=$ ]] || { echo "Invalid Sparkle public key" >&2; exit 1; }
 
 echo "==> $APP 조립"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+mkdir -p "$APP/Contents/Frameworks"
+ditto "$SPARKLE_FRAMEWORK" "$APP/Contents/Frameworks/Sparkle.framework"
 cp "$BIN_DIR/$APP_NAME" "$APP/Contents/MacOS/$APP_NAME"
 # 심볼 strip — 릴리스 바이너리 1.84MB → 0.80MB(-57%). codesign 전에 수행(서명 무효화 방지).
 strip -rSTx "$APP/Contents/MacOS/$APP_NAME" 2>/dev/null || strip -rSx "$APP/Contents/MacOS/$APP_NAME"
@@ -40,6 +47,12 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
+    <key>SUFeedURL</key><string>https://github.com/sacrezm/PokeTokenBar/releases/latest/download/appcast.xml</string>
+    <key>SUPublicEDKey</key><string>$SPARKLE_PUBLIC_KEY</string>
+    <key>SURequireSignedFeed</key><true/>
+    <key>SUEnableAutomaticChecks</key><false/>
+    <key>SUAutomaticallyUpdate</key><false/>
+    <key>SUAllowsAutomaticUpdates</key><false/>
 </dict>
 </plist>
 PLIST
@@ -90,7 +103,7 @@ else
 fi
 
 # Release packaging must not interrupt or replace the developer's running app.
-codesign --verify --strict "$APP"
+codesign --verify --deep --strict "$APP"
 if [[ "${PTB_INSTALL:-1}" == "0" ]]; then
     echo "Built: $APP (not installed)"
     exit 0

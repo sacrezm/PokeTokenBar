@@ -1,8 +1,7 @@
 import AppKit
 import Observation
 
-/// Check this fork's public GitHub Releases and show the existing in-app banner.
-/// Installation uses the release download; never upgrade from the upstream Homebrew tap.
+/// GitHub discovery drives the persistent in-app banner; Sparkle owns installation.
 @MainActor
 @Observable
 final class UpdateChecker {
@@ -15,7 +14,9 @@ final class UpdateChecker {
     private let clock: () -> Date
     private let session: URLSession
     private let defaults: UserDefaults
-    private let openURL: (URL) -> Void
+    private let installUpdate: (() -> Void)?
+    @ObservationIgnored private var installer: SparkleInstaller?
+    @ObservationIgnored private var automaticTask: Task<Void, Never>?
     private(set) var checkFailed = false
     private(set) var noPublishedRelease = false
     private let skippedKey = "tradingFork.skippedUpdateVersion"
@@ -24,13 +25,31 @@ final class UpdateChecker {
 
     init(currentVersion: String? = nil, clock: @escaping () -> Date = Date.init,
          session: URLSession = .shared, defaults: UserDefaults = .standard,
-         openURL: @escaping (URL) -> Void = { NSWorkspace.shared.open($0) }) {
+         installUpdate: (() -> Void)? = nil) {
         self.currentVersion = currentVersion
             ?? (Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String) ?? "0"
         self.clock = clock
         self.session = session
         self.defaults = defaults
-        self.openURL = openURL
+        self.installUpdate = installUpdate
+    }
+
+    /// App-owned, so closing the popover does not stop discovery. No silent installs.
+    func startAutomaticChecks(interval: TimeInterval = 3600) {
+        guard automaticTask == nil, interval.isFinite, interval > 0 else { return }
+        automaticTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard self != nil else { return }
+                await self?.check(minInterval: interval)
+                do { try await Task.sleep(for: .seconds(interval)) }
+                catch { return }
+            }
+        }
+    }
+
+    func stopAutomaticChecks() {
+        automaticTask?.cancel()
+        automaticTask = nil
     }
 
     /// 최신 릴리스 조회 → 새 버전이고 사용자가 그 버전을 'skip' 하지 않았으면 available 설정.
@@ -59,7 +78,7 @@ final class UpdateChecker {
               json["draft"] as? Bool == false, json["prerelease"] as? Bool == false,
               let tag = json["tag_name"] as? String,
               let html = json["html_url"] as? String,
-              // 응답 필드가 NSWorkspace.open 으로 가므로 https + github.com 만 허용(스킴 하이재킹 방지)
+              // Only accept release metadata belonging to this fork.
               let htmlURL = URL(string: html),
               htmlURL.absoluteString == "https://github.com/\(Self.repository)/releases/tag/\(tag)"
         else { checkFailed = true; return }
@@ -82,10 +101,12 @@ final class UpdateChecker {
         available = nil
     }
 
-    /// Opens only the validated fork release. Does not quit the app or touch saves.
+    /// Download, signature verification, installation and relaunch use Sparkle's native UI.
     func applyUpdate() {
-        guard let update = available, let url = URL(string: update.url) else { return }
-        openURL(url)
+        guard available != nil else { return }
+        if let installUpdate { installUpdate(); return }
+        if installer == nil { installer = SparkleInstaller() }
+        installer?.install()
     }
 
     // MARK: 버전 비교

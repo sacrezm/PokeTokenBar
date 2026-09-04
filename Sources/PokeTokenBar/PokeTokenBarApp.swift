@@ -95,7 +95,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             onOpenPopover: { [weak self] in self?.openPopover() },
             onHide: { [weak self] in self?.store.floatingPetEnabled = false }
         )   // 데스크톱 플로팅 펫(옵트인)
-        Task { await updater.check() }                    // 기동 시 1회 업데이트 확인
+        updater.startAutomaticChecks()
         tradingNotifications.onOpenTrade = { [weak self] in
             guard let self else { return }
             if !self.popover.isShown { self.togglePopover() }
@@ -191,8 +191,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if trading.hasUnreadActivity {
             if lines.isEmpty { lines = ["🔔"] } else { lines[0] += " 🔔" }
         }
+        if updater.available != nil, store.updateNotificationsEnabled {
+            if lines.isEmpty { lines = ["⬆"] } else { lines[0] += " ⬆" }
+        }
         Self.applyMenuText(lines, to: button)
-        button.toolTip = trading.hasUnreadActivity ? "New trading activity — click to open Trade" : nil
+        button.toolTip = updater.available != nil && store.updateNotificationsEnabled
+            ? "An app update is available — open PokeTokenBar to install"
+            : trading.hasUnreadActivity ? "New trading activity — click to open Trade" : nil
         needsSpriteLayout = true   // 텍스트 길이가 바뀌면 버튼 폭이 변해 이미지 자리도 움직인다
         // stale 시각 dim 제거 — 슬립/런치 직후 refresh 완료 전 몇 초간 회색으로 보여 '고장/비활성'
         // 으로 오인되던 것 방지(사용자 반복 지적). 데이터가 오래됐다는 신호가 필요하면 팝오버
@@ -209,6 +214,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func observeTradingActivity() {
         withObservationTracking {
             _ = trading.hasUnreadActivity
+            _ = updater.available
+            _ = store.updateNotificationsEnabled
         } onChange: { [weak self] in
             Task { @MainActor in
                 guard let self else { return }

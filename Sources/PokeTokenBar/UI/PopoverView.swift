@@ -89,7 +89,7 @@ struct PopoverView: View {
                 Text(l.updateAvailable(update.version, current: updater.currentVersion))
                     .font(.caption)
                 Spacer()
-                Button("Download") { updater.applyUpdate() }
+                Button("Update & Restart") { updater.applyUpdate() }
                     .buttonStyle(.borderedProminent).controlSize(.small)
                 Button(l.updateLater) { updater.skipCurrent() }
                     .buttonStyle(.borderless).controlSize(.small).foregroundStyle(.secondary)

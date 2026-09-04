@@ -4,11 +4,16 @@ import PackageDescription
 let package = Package(
     name: "PokeTokenBar",
     platforms: [.macOS(.v14)],
+    dependencies: [
+        .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.9.6"),
+    ],
     targets: [
         .executableTarget(
             name: "PokeTokenBar",
+            dependencies: [.product(name: "Sparkle", package: "Sparkle")],
             path: "Sources/PokeTokenBar",
-            linkerSettings: [.linkedLibrary("sqlite3")]
+            linkerSettings: [.linkedLibrary("sqlite3"),
+                             .unsafeFlags(["-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks"])]
         ),
         .testTarget(
             name: "PokeTokenBarTests",
