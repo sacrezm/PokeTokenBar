@@ -132,8 +132,11 @@ struct TradingView: View {
 
     @ViewBuilder
     private var invitations: some View {
-        let pending = trading.invites.filter { $0.status == "pending" }
-        let ready = trading.invites.filter { $0.status == "accepted" }
+        let available = trading.invites.filter {
+            $0.tradeID != trading.activeTrade?.tradeID || trading.activeTrade?.status == .failed
+        }
+        let pending = available.filter { $0.status == "pending" }
+        let ready = available.filter { $0.status == "accepted" }
         if !pending.isEmpty || !ready.isEmpty {
             Divider()
             Text("Trade invites").font(.caption).foregroundStyle(.secondary)
@@ -169,6 +172,11 @@ struct TradingView: View {
             if let receipt = trading.activeTrade?.receipt {
                 Label("Received \(trading.receivedPokemon(for: receipt).displayName)", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(.green)
+                Button("Done") {
+                    trading.closeTrade()
+                    selectedPokemonID = ""
+                    message = nil
+                }
             } else {
             if trading.heldInventory.isEmpty {
                 Text("No graduated Pokémon available.").font(.caption).foregroundStyle(.secondary)

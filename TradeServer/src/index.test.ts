@@ -119,6 +119,10 @@ describe("lean trade server", () => {
     expect(beforeAccept.status).toBe(403);
     const accepted = await post<{ tradeId: string }>(`/v1/trades/invites/${invite.data.id}/accept`, bob.token, {});
     expect(accepted.data.tradeId).toBe(invite.data.tradeId);
+    for (const trainer of [alice, bob]) {
+      const ready = await get<{ invites: Invite[] }>("/v1/trades/invites", trainer.token);
+      expect(ready.data.invites.map((item) => item.tradeId)).toContain(invite.data.tradeId);
+    }
 
     let aliceSocket = await connect(invite.data.tradeId, alice.token);
     await nextMessage(aliceSocket, "trade.ready");
@@ -151,6 +155,15 @@ describe("lean trade server", () => {
 
     const fetched = await get<Receipt>(`/v1/trades/${invite.data.tradeId}/receipt`, alice.token);
     expect(fetched.data.manifestDigest).toBe(manifestDigest);
+    // Completion closes the invitation, not the recoverable receipt. Neither
+    // participant has acknowledged yet, so both must still be able to recover.
+    for (const trainer of [alice, bob]) {
+      const remaining = await get<{ invites: Invite[] }>("/v1/trades/invites", trainer.token);
+      expect(remaining.data.invites.map((item) => item.tradeId)).not.toContain(invite.data.tradeId);
+      const recovery = await get<Receipt>(`/v1/trades/${invite.data.tradeId}/receipt`, trainer.token);
+      expect(recovery.data.offerA).toBeDefined();
+      expect(recovery.data.offerB).toBeDefined();
+    }
     await post(`/v1/trades/${invite.data.tradeId}/ack`, alice.token, { manifestDigest });
     const clean = await post<{ cleaned: boolean }>(`/v1/trades/${invite.data.tradeId}/ack`, bob.token, { manifestDigest });
     expect(clean.data.cleaned).toBe(true);
@@ -158,6 +171,22 @@ describe("lean trade server", () => {
     expect(after.data.offerA).toBeUndefined();
     aliceSocket.close();
     bobSocket.close();
+    for (const trainer of [alice, bob]) {
+      const remaining = await get<{ invites: Invite[] }>("/v1/trades/invites", trainer.token);
+      expect(remaining.data.invites.map((item) => item.tradeId)).not.toContain(invite.data.tradeId);
+    }
+    const reopen = await SELF.fetch(`https://trade.test/v1/trades/${invite.data.tradeId}/ws`, {
+      headers: { authorization: `Bearer ${alice.token}`, Upgrade: "websocket" },
+    });
+    expect(reopen.status).toBe(409);
+    expect(await reopen.json()).toEqual({ error: "trade_closed" });
+    const acceptAgain = await post<{ error: string }>(`/v1/trades/invites/${invite.data.id}/accept`, bob.token, {});
+    expect(acceptAgain.status).toBe(409);
+    expect(acceptAgain.data.error).toBe("trade_closed");
+    const next = await post<Invite>("/v1/trades/invite", alice.token, { friendCode: bob.friendCode });
+    expect(next.status).toBe(201);
+    const open = await get<{ invites: Invite[] }>("/v1/trades/invites", bob.token);
+    expect(open.data.invites.map((item) => item.tradeId)).toEqual([next.data.tradeId]);
   });
 
   it("stores only a token digest and rejects plaintext offer fields", async () => {

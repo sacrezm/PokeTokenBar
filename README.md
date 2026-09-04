@@ -41,6 +41,8 @@ Both players need a trading-enabled build of this fork. The upstream Homebrew pa
 
 The default relay is `https://poketokenbar-trade-server.triple-tap.workers.dev`. Both players must use the same relay.
 
+Completed trades disappear from Trade invites and cannot be reopened, including after restarting the app. Choose **Done** to close the completed-trade panel. Receipt recovery remains available independently of the invitation list.
+
 Received Pokémon appear in Collection and in a received-trades section of the catch log, including their Original Trainer. Completed exchanges show a sprite celebration and confirmation. While the app is running, incoming friend/trade requests are checked every 15 seconds (with backoff when offline), even with the popover closed. A menu-bar bell marks unread activity; macOS banners require notification permission and respect Focus settings. Click the bell or notification to open Trade.
 
 Collection opens on **Owned**: one row per Pokémon currently held, in its current form, including the companion being raised and received Pokémon. Earlier evolution stages do not count as extra Pokémon; two individuals of the same species still count as two. Released and traded-away Pokémon are excluded. An incubating egg is shown separately, outside the count. **Pokédex** and **Catch log** remain available as history tabs.

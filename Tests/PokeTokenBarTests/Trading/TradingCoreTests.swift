@@ -3,6 +3,60 @@ import SwiftUI
 @testable import PokeTokenBar
 
 final class TradingCoreTests: XCTestCase {
+    @MainActor
+    func testCompletedInviteDisappearsImmediatelyAndCannotReopenAfterRefreshOrRestart() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let suite = "trading-lifecycle-\(UUID())"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let identity = try InMemoryTradingIdentityStore()
+        let key = TradingIdentityValidation.base64URL(try identity.loadOrCreateIdentity().agreementPublicKey)
+        let profile = ["id": "me", "trainerName": "Ash", "friendCode": "ASH12345", "agreementPublicKey": key]
+        let peer = ["id": "peer", "trainerName": "Misty", "friendCode": "MISTY123", "agreementPublicKey": key]
+        defaults.set(try JSONSerialization.data(withJSONObject: profile), forKey: "PokeTokenBar.trading.profile.v1")
+        TradingFeatureURLProtocol.handler = { _ in
+            TradingFeatureTestResponse.json(["invites": [
+                ["id": "old", "tradeId": "completed", "inviterId": "peer", "inviteeId": "me", "status": "accepted", "other": peer],
+                ["id": "new", "tradeId": "next", "inviterId": "peer", "inviteeId": "me", "status": "pending", "other": peer]
+            ]])
+        }
+        defer { TradingFeatureURLProtocol.handler = nil }
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [TradingFeatureURLProtocol.self]
+        let session = URLSession(configuration: config)
+        defer { session.invalidateAndCancel() }
+        let url = directory.appendingPathComponent("trades.json")
+        let sidecar = TradingSidecar(fileURL: url)
+        let outgoing = TradePokemon(creatureID: "out", speciesID: 25, baseID: 25, chainOrder: [25],
+                                    rarity: .common, isShiny: false, nature: nil, caughtAt: nil,
+                                    displayName: "Pikachu", originalTrainer: .init(trainerID: "me", trainerName: "Ash"))
+        let incoming = TradePokemon(creatureID: "in", speciesID: 531, baseID: 531, chainOrder: [531],
+                                    rarity: .common, isShiny: false, nature: nil, caughtAt: nil,
+                                    displayName: "Audino", originalTrainer: .init(trainerID: "peer", trainerName: "Misty"))
+        _ = try await sidecar.reconcile(local: [outgoing])
+        let feature = TradingFeature(baseURL: URL(string: "https://example.test")!, identityStore: identity,
+                                     sidecar: sidecar, session: session, defaults: defaults)
+        try await feature.refreshInvites()
+        let old = try XCTUnwrap(feature.invites.first)
+        XCTAssertEqual(feature.invites.count, 2)
+        try await feature.applyLocalReceipt(.init(receiptID: "completed", tradeID: "completed",
+                                                  outgoingCreatureID: "out", incoming: incoming))
+        XCTAssertEqual(feature.invites.map(\.tradeID), ["next"], "Completion must remove its invite immediately")
+        try await feature.refreshInvites()
+        XCTAssertEqual(feature.invites.map(\.tradeID), ["next"], "A stale response must not resurrect it")
+        let restarted = TradingFeature(baseURL: URL(string: "https://example.test")!, identityStore: identity,
+                                       sidecar: TradingSidecar(fileURL: url), session: session, defaults: defaults)
+        try await restarted.refreshInvites()
+        XCTAssertEqual(restarted.invites.map(\.tradeID), ["next"])
+        try await restarted.openTrade(tradeID: old.tradeID, peer: old.other)
+        XCTAssertNil(restarted.activeTrade, "Never start a WebSocket for an already applied trade")
+        restarted.closeTrade()
+        let saved = try await sidecar.state()
+        XCTAssertEqual(saved.heldInventory, [incoming])
+        XCTAssertEqual(saved.appliedReceiptIDs, ["completed"])
+    }
+
     func testOfferUsesECDHHKDFAESGCMAndPreservesOGTrainer() throws {
         let alice = try InMemoryTradingIdentityStore()
         let bob = try InMemoryTradingIdentityStore()

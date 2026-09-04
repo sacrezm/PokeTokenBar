@@ -1,3 +1,5 @@
+> 이 저장소는 원본에 친구 간 원격 교환을 추가한 포크입니다. 설치 및 업데이트는 [이 포크의 릴리스](https://github.com/sacrezm/PokeTokenBar/releases/latest)를 이용하세요. v2.6.1에서는 완료된 교환 초대가 목록에서 사라지고 다시 열리지 않습니다. **Done**으로 완료 화면을 닫을 수 있으며, 수신 복구는 유지됩니다. 자세한 내용은 [영문 포크 안내](README.md#about-this-fork)를 참고하세요. 아래 내용은 원본 프로젝트 안내입니다.
+
 <div align="center">
 
 <img src="assets/icon.png" width="128" alt="PokeTokenBar 아이콘">

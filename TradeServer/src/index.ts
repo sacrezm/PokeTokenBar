@@ -471,7 +471,10 @@ export class TradeDatabase extends DurableObject<Env> {
         t.id AS other_id, t.trainer_name AS other_name, t.friend_code AS other_code,
         t.agreement_public_key AS other_agreement_public_key
        FROM trade_invites i JOIN trainers t ON t.id = CASE WHEN i.inviter_id = ? THEN i.invitee_id ELSE i.inviter_id END
-       WHERE i.inviter_id = ? OR i.invitee_id = ? ORDER BY i.created_at`,
+       JOIN trades r ON r.trade_id = i.trade_id
+       WHERE (i.inviter_id = ? OR i.invitee_id = ?)
+         AND i.status IN ('pending', 'accepted') AND r.status IN ('invited', 'active')
+       ORDER BY i.created_at`,
       id,
       id,
       id,
@@ -491,6 +494,7 @@ export class TradeDatabase extends DurableObject<Env> {
     const row = this.row<InviteRow>("SELECT id, trade_id, inviter_id, invitee_id, status, created_at, inviter_id AS other_id, '' AS other_name, '' AS other_code FROM trade_invites WHERE id = ?", inviteId);
     if (!row) throw new Failure("not_found", 404);
     if (row.invitee_id !== id) throw new Failure("forbidden", 403);
+    if (this.trade(row.trade_id).status === "committed") throw new Failure("trade_closed", 409);
     if (row.status === "accepted") return { tradeId: row.trade_id };
     if (row.status !== "pending") throw new Failure("invalid_state");
     this.ctx.storage.sql.exec("UPDATE trade_invites SET status = 'accepted' WHERE id = ?", inviteId);
@@ -596,6 +600,7 @@ export class TradeDatabase extends DurableObject<Env> {
     try {
       const trade = this.trade(tradeId);
       this.participant(trade, actor);
+      if (trade.status === "committed") throw new Failure("trade_closed", 409);
       if (trade.status !== "active" || !this.isFriend(trade.trainer_a_id, trade.trainer_b_id)) throw new Failure("friendship_required", 403);
       const pair = new WebSocketPair();
       this.ctx.acceptWebSocket(pair[1], [`trade:${tradeId}`, `actor:${actor}`]);
