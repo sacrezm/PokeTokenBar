@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VERSION="${PTB_VERSION:-2.6.2}"
+VERSION="${PTB_VERSION:-2.6.3}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version: $VERSION" >&2; exit 1; }
 APP_NAME="PokeTokenBar"
 BUILD_DIR="build"
