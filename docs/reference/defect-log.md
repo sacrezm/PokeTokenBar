@@ -612,6 +612,18 @@ read_when:
 
 ## 프로세스 제어·업데이트
 
+- **Exercise the updater, not just discovery and archive signatures.** v2.6.2
+  required signed feeds but omitted `SUVerifyUpdateBeforeExtraction`, so Sparkle
+  refused to start. Mocked installer callbacks and offline signature checks never
+  initialized the updater and missed this configuration error. Both flags must be
+  enabled together in production and smoke bundles; `OneClickUpdateTests` locks
+  that packaging contract. `scripts/test-updater-e2e.sh` compiles the production
+  installer into a disposable app with no Pokémon/trading code, then proves signed
+  download, replacement and relaunch. It reproduced the startup error before the
+  fix and completed 1.0.0 -> 2.0.0 afterward. The user's Update & Restart click now
+  authorizes download and relaunch once; information-only updates show an error,
+  never a browser fallback. (2026-09-04.)
+
 - **Wait for the domain result, not an Observation willSet callback.** The periodic
   update test stopped after one request on the macOS 15 CI runner: the initial
   `available = nil` assignment triggered its one-shot observation expectation.
