@@ -1,4 +1,4 @@
-# PokeTokenBar — Claude 프로젝트 지침
+# PokéForge — project instructions
 
 이 파일은 **매 세션 전문이 로드된다.** 그래서 여기엔 *항상 적용되는 규칙*만 둔다.
 길고 상황별인 절차는 `docs/reference/` 로 내리고 아래 인덱스에서 "언제 읽는가"로 가리킨다.
@@ -8,7 +8,8 @@
 
 | 문서 | 언제 읽나 |
 |---|---|
-| `docs/reference/release-workflow.md` | 버전을 배포할 때, `release.sh` 게이트에 막혔을 때, UI 변경으로 스크린샷·랜딩을 갱신할 때 |
+| `docs/reference/pokeforge-identity.md` | Changing branding, repository links, app packaging, storage paths, signing identities or the trading relay |
+| `docs/reference/release-workflow.md` | 버전을 배포할 때, `release.sh` 게이트에 막혔을 때, UI 변경으로 스크린샷을 갱신할 때 |
 | `docs/reference/provider-extension.md` | 새 사용량 소스·버전매니저·로그 루트를 추가할 때, 프로바이더 분기를 리뷰할 때 |
 | `docs/reference/defect-log.md` | 결함·회귀를 고치는 중(부류 스윕 근거), 동시성·캐시·외부 로그 포맷·대용량 파일 읽기·상시 애니메이션·세이브 이전을 건드릴 때 |
 
@@ -23,7 +24,7 @@
 - 스쿼시 머지 저장소라 **PR 제목이 곧 `main` 커밋 제목**이 된다 → PR 을 영어로 쓰면 공개 히스토리도
   영어로 유지된다.
 - **커밋 메시지도 영어 기본.** 스쿼시 전 브랜치 커밋 목록도 PR 리뷰어에게 노출되므로 영어로 쓴다.
-- 범위 밖(추후): 코드 주석·이 `CLAUDE.md` 본문의 영어 전환. README/랜딩은 이미 en/ko/ja 다국어 유지.
+- 범위 밖(추후): 코드 주석·이 `CLAUDE.md` 본문의 영어 전환. README는 en/ko/ja 다국어 유지.
 
 ## 릴리스 (자연어 트리거)
 
@@ -37,7 +38,7 @@
 - 버전을 직접 명시하면("2.4.1 배포") 그 값 그대로.
 - 세그먼트 지정 없이 "배포/릴리스"만 말하면: 변경 성격 기준으로 제안 후 확인받고 진행.
 
-**문서·스크린샷·랜딩 갱신은 매 릴리스 필수다 — "할까요?" 묻지 말고 무조건 한다.**
+**Update the README and screenshots for each release, retaining clear PokeTokenBar fork attribution.**
 실행 절차·에셋 게이트·함정은 `docs/reference/release-workflow.md`, 체크리스트는 `RELEASE.md`.
 
 릴리스는 외부 공개(비가역)이므로 실행 직전 **적용할 버전과 노트 요약을 한 번 보여준 뒤** 진행한다.

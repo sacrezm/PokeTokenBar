@@ -68,10 +68,10 @@ final class LocalizationInterpolationTests: XCTestCase {
                    "4242", a, "ZQXEXPORTEDAT", "ZQXDEVICE", "1717", b)
             expect(lang, "importSaveDone", l.importSaveDone(dex: 4242, tokens: a), "4242", a)
 
-            // Mail report / 메일 리포트
-            expect(lang, "reportMailFallback", l.reportMailFallback(a), a)
-            expect(lang, "reportMailSubject", l.reportMailSubject(a), a)
-            expect(lang, "reportMailBody", l.reportMailBody(version: a, os: b), a, b)
+            // GitHub issue report / GitHub 이슈 리포트
+            expect(lang, "reportIssueFallback", l.reportIssueFallback(a), a)
+            expect(lang, "reportIssueTitle", l.reportIssueTitle(a), a)
+            expect(lang, "reportIssueBody", l.reportIssueBody(version: a, os: b), a, b)
 
             // Companion progress & status / 컴패니언 진행 · 상태
             expect(lang, "stage", l.stage(4242, 1717), "4242", "1717")

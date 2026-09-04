@@ -1,11 +1,11 @@
 #!/bin/bash
-# PokeTokenBar.app 번들 조립 + /Applications 설치
+# PokeForge.app 번들 조립 + /Applications 설치
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 VERSION="${PTB_VERSION:-2.6.3}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version: $VERSION" >&2; exit 1; }
-APP_NAME="PokeTokenBar"
+APP_NAME="PokeForge"
 BUILD_DIR="build"
 APP="$BUILD_DIR/$APP_NAME.app"
 
@@ -37,8 +37,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <!-- Keep the original identifier for preferences, Keychain and updater continuity. -->
     <key>CFBundleIdentifier</key><string>io.github.chattymin.poketokenbar</string>
     <key>CFBundleName</key><string>$APP_NAME</string>
+    <key>CFBundleDisplayName</key><string>PokéForge</string>
     <key>CFBundleExecutable</key><string>$APP_NAME</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
@@ -47,7 +49,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>LSUIElement</key><true/>
     <key>NSHighResolutionCapable</key><true/>
-    <key>SUFeedURL</key><string>https://github.com/sacrezm/PokeTokenBar/releases/latest/download/appcast.xml</string>
+    <key>SUFeedURL</key><string>https://github.com/sacrezm/pokeforge/releases/latest/download/appcast.xml</string>
     <key>SUPublicEDKey</key><string>$SPARKLE_PUBLIC_KEY</string>
     <key>SURequireSignedFeed</key><true/>
     <key>SUVerifyUpdateBeforeExtraction</key><true/>
@@ -108,6 +110,14 @@ codesign --verify --deep --strict "$APP"
 if [[ "${PTB_INSTALL:-1}" == "0" ]]; then
     echo "Built: $APP (not installed)"
     exit 0
+fi
+
+# The legacy app shares our save and bundle identity. Let it quit normally so
+# its launchd watchdog does not restart it while the renamed app is installed.
+if pgrep -x PokeTokenBar >/dev/null; then
+    echo "Built: $APP. Before installing, turn off Launch at login in PokeTokenBar and quit it."
+    echo "Then rerun this script; see docs/reference/pokeforge-identity.md."
+    exit 1
 fi
 
 echo "==> 기존 인스턴스 종료 + /Applications 설치"

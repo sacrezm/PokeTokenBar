@@ -36,10 +36,10 @@ enum CrashReporter {
         // 1) 직전 세션 비정상 종료 감지 — 마커가 남아 있으면 정상 종료되지 않은 것.
         if FileManager.default.fileExists(atPath: markerURL.path) {
             AppLog.write("⚠️ 직전 세션이 정상 종료되지 않았습니다(크래시·OOM·강제종료 추정). "
-                + "원인 스택은 ~/Library/Logs/DiagnosticReports/PokeTokenBar-*.ips 참조.")
+                + "원인 스택은 ~/Library/Logs/DiagnosticReports/PokeForge-*.ips 참조.")
         }
         try? Data().write(to: markerURL, options: .atomic)   // 이번 세션 running 마커
-        AppLog.write("launch: PokeTokenBar \(version) 시작")
+        AppLog.write("launch: PokéForge \(version) 시작")
 
         // 3) 정상 종료 시 마커 제거(다음 실행이 '비정상'으로 오인하지 않게).
         NotificationCenter.default.addObserver(

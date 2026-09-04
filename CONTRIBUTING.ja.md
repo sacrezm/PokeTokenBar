@@ -1,104 +1,59 @@
-# PokeTokenBar への貢献
+# PokéForge への貢献
 
 [English](CONTRIBUTING.md) · [한국어](CONTRIBUTING.ko.md) · **日本語**
 
-貢献に興味を持っていただきありがとうございます！PokeTokenBar は小さな非商用の
-ファンプロジェクトで、大小を問わずあらゆる貢献を歓迎します — バグ報告、修正、
-新しい使用量プロバイダー、翻訳、ドキュメント。
+PokéForge は [chattymin/PokeTokenBar](https://github.com/chattymin/PokeTokenBar) を基に独立して管理する非商用ファンプロジェクトです。元プロジェクトの MIT 著作権表示は [LICENSE](LICENSE) に残り、貢献は [sacrezm/pokeforge](https://github.com/sacrezm/pokeforge) で管理されます。
 
-プルリクエストを開く前に、以下の短いセクションをお読みください。
+## 始める前に
 
-## 前提条件
+- macOS 14 (Sonoma) 以降
+- Swift 6 / Xcode 16 以降（`swift-tools-version: 6.0`）
 
-- **macOS 14 (Sonoma) 以降**
-- **Swift 6 ツールチェーン** (Xcode 16 以降) — `Package.swift` が要求
-  (`swift-tools-version: 6.0`)
+公開製品名は PokéForge です。Swift 製品とアプリバンドルは `PokeForge` を使いますが、互換性のため target/module とソースパスは `PokeTokenBar`、`Sources/PokeTokenBar` のままです。内部名を機械的に変更せず、[identity のメモ](docs/reference/pokeforge-identity.md)を確認してください。
 
-## ビルド & テスト
+ローカル checkout の remote は次のようにします。
 
-本プロジェクトは Swift Package です。リポジトリのルートから:
-
-```bash
-swift build      # アプリターゲットをコンパイル
-swift test       # 全テストスイートを実行
+```text
+origin   https://github.com/sacrezm/pokeforge.git
+upstream https://github.com/chattymin/PokeTokenBar.git
 ```
 
-CI はすべてのプルリクエストで `swift build` と `swift test` を実行します。まず
-ローカルで両方が通ることを確認してください。
+## ビルドとテスト
 
-## 貢献ワークフロー
+リポジトリのルートから実行します。
 
-1. `main` から feature ブランチを作成します（書き込み権限がなければリポジトリを fork）。
-2. テストとともに変更します。変更は focused に保ってください。
-3. `main` に対してプルリクエストを開きます。
-4. CI が通りレビューが完了したら、**squash merge** でマージされます。
+```bash
+swift build
+swift test
 
-### 言語: 英語優先
+# build/PokeForge.app を作成し、インストールしない
+PTB_INSTALL=0 ./scripts/build-app.sh
+```
 
-本リポジトリでは、共同作業で残るもの（Issue・PR・公開コメント）は **英語を第一言語**とします:
+バンドルスクリプトは `PokeForge.app` を作成します。`PTB_INSTALL=0` ならインストールせず、指定しない場合は起動中のアプリを終了して `/Applications/PokeForge.app` を置き換えます。CI は `swift build`、`scripts/test-gate.sh` のテスト・カバレッジゲート、secret scan を実行します。
 
-- **プルリクエストのタイトルと本文は英語である必要があります。**
-- **コミットメッセージは英語で書いてください。**
+## 貢献の流れ
 
-リポジトリは squash-merge するため、PR タイトルが `main` のコミット件名になります —
-英語の PR が公開履歴を一貫させます。
+1. `main` から範囲を絞ったブランチを作成します。
+2. 問題を解決する最小の変更を行い、動作が変わる場合は意味のあるテストを追加します。
+3. `feat:`, `fix:`, `docs:`, `test:`, `refactor:` などの Conventional Commit 接頭辞を使います。
+4. `main` に向けて、英語のタイトルと本文でプルリクエストを開きます。
+5. `Sources/PokeTokenBar/UI/` 配下を変更した場合は before/after を説明します。スクリーンショットは任意です。
 
-### コミット & PR の規約
-
-- [Conventional Commits](https://www.conventionalcommits.org/) スタイルを使用:
-  `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:` など。
-- プルリクエストテンプレートを記入してください。
-- **UI の変更**（`Sources/PokeTokenBar/UI/` 配下のすべて）は、PR で before/after を
-  説明してください。スクリーンショットや GIF は歓迎ですが任意です — 明確なテキスト説明で
-  十分です。正式な `assets/` スクリーンショットは PR ごとではなくリリース時に
-  再生成されます。
+公開履歴を一貫させるため、プルリクエストとコミットメッセージは英語を第一言語にします。バグには macOS のバージョン、アプリのバージョン、影響する AI ツール、再現手順を含めてください。
 
 ## コード規約
 
-本アプリは設計上プロバイダー非依存（provider-agnostic）です。拡張する際は次のルールに
-従ってください（テストでも強制されます）:
+- **新しい使用量ソース:** `Sources/PokeTokenBar/Core/` に `UsageProvider` を実装し、`Sources/PokeTokenBar/Core/UsageStore.swift` のデフォルト一覧に登録します。
+- **汎用の使用量動作:** すべての provider を集計します。provider 固有の分岐は、その provider 固有の上限や動作だけに使います。
+- **新しいツール・バージョンマネージャーのパス:** 探索と子プロセスの `PATH` が共有する `BinaryLocator.commonToolDirectories()` に追加します。
+- **追記専用 SQLite 使用量:** watermark ループを複製せず、形式ごとの query と parser を `LocalAdditionalUsageReader.scanIncrementalStores` に接続します。
+- **ロードマップの区別:** レベル、XP/EV、捕獲・トレーニングモード、トレーナーバトルは実装・検証されるまでリリース済み機能として扱いません。
 
-- **使用量ソースの追加**（新しい AI CLI）= `UsageProvider` プロトコル
-  (`Sources/PokeTokenBar/Core/UsageProvider.swift`) を新しい型ひとつで実装し、
-  `UsageStore.init` のデフォルト `providers:` 配列
-  (`Sources/PokeTokenBar/Core/UsageStore.swift`) に登録します。触れる必要があるのは
-  この2箇所だけです。
-- **汎用的な動作はすべてのプロバイダーにわたって集計する必要があります**（今日/週/月の
-  合計、消費ペースの段階、コンパニオンのリズム）。汎用的な計算を特定のプロバイダーに結び付けたり、
-  汎用パスに `providerID == "..."` のリテラル分岐を追加したりしないでください。
-  プロバイダー固有の動作（例: 公式の上限）だけが `providerID` で分岐できます。
-- **バージョンマネージャー / インストールパスの追加** =
-  `BinaryLocator.commonToolDirectories()` に追加します — 探索と子プロセスの `PATH` が
-  共有する単一のソースです。
-- **追記専用 SQLite 使用量ストアの追加**（Cursor・Copilot のように rowid/`id` ウォーターマーク）=
-  `LocalAdditionalUsageReader.scanIncrementalStores` に URL / `MAX` SQL / row query /
-  parse だけ渡す。ウォーターマーク・ループをコピーしない。
+## 法務とプライバシーの境界
 
-## 法務 / 知的財産
+ポケモンや第三者の著作物のアセットをコミット・バンドルしないでください。スプライト、アートワーク、音声、フォント、大量の名前・データファイルを含みます。ポケモンの種データとスプライトは [PokéAPI](https://pokeapi.co/) から実行時に取得し、ローカルにキャッシュします。
 
-PokeTokenBar は**非公式・非商用のファンプロジェクト**であり、任天堂、ゲームフリーク、
-クリーチャーズ、株式会社ポケモンとは提携していません
-（[README](README.ja.md#ライセンス--免責) の免責を参照）。プロジェクトを安全に維持・
-配布するため、貢献は**必ず**次のルールに従う必要があります:
+シークレット、認証情報、非公開ツールへの参照、商用利用を意図した機能をコミットしないでください。交換は任意のリレー機能です。ポケモンのオファーはクライアントで暗号化されますが、トレーナー・フレンド・交換のメタデータは選択したリレーから見えます。この境界をコードとドキュメントで保ってください。
 
-- **ポケモン（またはその他の第三者）の著作物をコミット・バンドルしないでください** —
-  スプライト、アートワーク、音声、フォント、名前/データの一括ファイル。ポケモンの種族
-  データおよびスプライトは、公開されている [PokéAPI](https://pokeapi.co) から
-  **実行時に**取得され、ユーザーの端末にローカルキャッシュされます。そのまま維持して
-  ください。
-- **商用利用を意図した機能**や、著作物を再配布・エクスポートする機能を追加しないで
-  ください。
-- **シークレット、認証情報、非公開/内部ツールへの参照をコミットしないでください。**
-  リポジトリ内のものはすべて、特定の環境に依存せず公開しても安全な状態に保ってください。
-- 貢献を提出することにより、それが**あなた自身のオリジナルな成果物**であることを確認し、
-  本プロジェクトの [MIT License](LICENSE) の下でライセンスされることに同意したものと
-  します。MIT ライセンスは本プロジェクトのソースコードのみを対象とし — 第三者の商標・
-  アートワーク・データに関する権利は付与しません。
-
-## バグ報告 & 機能リクエスト
-
-Issue テンプレートを使用してください。バグの場合は、macOS のバージョン、アプリの
-バージョン、使用している AI CLI、再現手順を含めてください。
-
-権利者の方で本プロジェクトに懸念がある場合は、Issue を作成するかメンテナーまで
-ご連絡ください。速やかに対応いたします。
+貢献を提出することで、あなたの作業がオリジナルであり、本プロジェクトの [MIT License](LICENSE) の下で配布できることに同意したものとします。MIT は本プロジェクトのソースコードのみを対象とし、第三者のポケモン知的財産権を付与しません。

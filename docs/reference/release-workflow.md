@@ -1,6 +1,6 @@
-# Trading fork releases
+# PokéForge releases
 
-This fork uses GitHub Releases in **sacrezm/PokeTokenBar**. No upstream tap,
+This fork uses GitHub Releases in **sacrezm/pokeforge**. No upstream tap,
 Pages deployment, update server, or CI signing secrets are needed. Sparkle provides
 the native download, signature verification, app replacement and relaunch UI.
 
@@ -49,9 +49,10 @@ app ZIP and are not replaced. Settings offers a
 manual check, including skipped versions, and distinguishes failed checks from
 "up to date".
 
-Versions through 2.6.1 do not contain Sparkle; 2.6.2 has an updater startup configuration
-error. These versions need one manual installation of 2.6.3 or later. Subsequent
-updates use the in-app flow. No existing
+Pre-PokéForge builds (including 2.6.3) validate the old repository URL and cannot
+discover releases after the repository rename. They need one manual installation
+of the first PokéForge release. Subsequent PokéForge updates use the in-app flow.
+See [the identity and upgrade notes](pokeforge-identity.md) for installation details. No existing
 release is overwritten. Do not use upstream Homebrew upgrade; it removes trading.
 
 ## Verify a published release

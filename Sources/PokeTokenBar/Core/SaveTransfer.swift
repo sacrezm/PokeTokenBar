@@ -74,7 +74,7 @@ enum SaveTransfer {
 
     /// 내보내기 파일명 — 날짜가 들어가야 여러 번 내보내도 덮어쓰지 않는다.
     static func suggestedFileName(date: Date) -> String {
-        "PokeTokenBar-Save-\(dayStamp(date)).json"
+        "PokeForge-Save-\(dayStamp(date)).json"
     }
 
     /// 백업 파일명 — 불러올 때마다 새 슬롯. 하나만 유지하면 두 번째 불러오기가 **원본**을 덮어써,

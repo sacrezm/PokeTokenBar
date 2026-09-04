@@ -14,7 +14,7 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-APP="/Applications/PokeTokenBar.app"
+APP="/Applications/PokeForge.app"
 LOG="$HOME/Library/Logs/PokeTokenBar.log"
 SNAP="$HOME/Library/Application Support/PokeTokenBar/last-snapshot.json"
 PASS=0; FAIL=0; SKIP=0
@@ -29,13 +29,13 @@ echo "▶ 2/5 기동"
 MARK=$(date +%s)
 open "$APP" || sleep 2 && open "$APP" 2>/dev/null   # LaunchServices -600 재시도
 sleep 2
-INSTANCES=$(pgrep -x PokeTokenBar | wc -l | tr -d ' ')
+INSTANCES=$(pgrep -x PokeForge | wc -l | tr -d ' ')
 case "$INSTANCES" in
   0) bad "프로세스 없음"; exit 1 ;;
-  1) ok "프로세스 생존, 단일 인스턴스 (pid $(pgrep -x PokeTokenBar))" ;;
+  1) ok "프로세스 생존, 단일 인스턴스 (pid $(pgrep -x PokeForge))" ;;
   # 로그인 에이전트 등록(RunAtLoad)이 이미 떠 있는 앱을 한 번 더 실행하던 회귀 — SingleInstance 가드가
   # 막는다. launchd 경계는 단위 테스트로 못 밟으니 개수 검사를 여기 둔다(defect-log 프로세스·인스턴스).
-  *) bad "인스턴스 $INSTANCES 개 — 중복 실행 (pid $(pgrep -x PokeTokenBar | tr '\n' ' '))" ;;
+  *) bad "인스턴스 $INSTANCES 개 — 중복 실행 (pid $(pgrep -x PokeForge | tr '\n' ' '))" ;;
 esac
 
 echo "▶ 3/5 데이터 파이프라인 (스냅샷 갱신 대기, 최대 90s)"
@@ -61,7 +61,7 @@ cat > /tmp/ptb-e2e-win.swift <<'SWIFT'
 import CoreGraphics
 let list = CGWindowListCopyWindowInfo([.optionAll], kCGNullWindowID) as? [[String: Any]] ?? []
 var status = 0, tall = 0
-for w in list where (w[kCGWindowOwnerName as String] as? String) == "PokeTokenBar" {
+for w in list where (w[kCGWindowOwnerName as String] as? String) == "PokeForge" {
     let layer = w[kCGWindowLayer as String] as? Int ?? 0
     let bounds = w[kCGWindowBounds as String] as? [String: Any]
     let h = bounds?["Height"] as? Double ?? 0
@@ -75,7 +75,7 @@ swiftc -O -o /tmp/ptb-e2e-win /tmp/ptb-e2e-win.swift 2>/dev/null
 winprobe() { /tmp/ptb-e2e-win 2>/dev/null; }
 # 1차: AX 로 status item 존재 확인(결정적). AX 미허용이면 window server 폴백
 # (주의: status 윈도우는 앱 최초 활성화 전 CGWindowList 에 안 잡힐 수 있음 — 관측된 macOS 동작).
-AXCNT=$(osascript -e 'tell application "System Events" to tell process "PokeTokenBar" to get count of menu bar items of menu bar 2' 2>/dev/null)
+AXCNT=$(osascript -e 'tell application "System Events" to tell process "PokeForge" to get count of menu bar items of menu bar 2' 2>/dev/null)
 if [[ "${AXCNT:-}" =~ ^[0-9]+$ ]]; then
   if [[ "$AXCNT" -ge 1 ]]; then ok "status item 존재 (AX, count=$AXCNT)"; else bad "status item 없음 (AX count=0)"; fi
 else
@@ -86,7 +86,7 @@ fi
 
 echo "▶ 5/5 팝오버 오픈 (Accessibility)"
 # click 이 아니라 AXPress — click 은 좌표 기반이라 비활성 앱에서 액션이 발화되지 않는 경우가 있음(관측).
-press() { osascript -e 'tell application "System Events" to tell process "PokeTokenBar" to perform action "AXPress" of menu bar item 1 of menu bar 2' >/dev/null 2>&1; }
+press() { osascript -e 'tell application "System Events" to tell process "PokeForge" to perform action "AXPress" of menu bar item 1 of menu bar 2' >/dev/null 2>&1; }
 polltall() { # $1=횟수(0.5s 간격)
   TALL=0
   for _ in $(seq 1 "$1"); do

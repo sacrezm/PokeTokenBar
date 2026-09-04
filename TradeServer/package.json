@@ -1,5 +1,5 @@
 {
-  "name": "poketokenbar-trade-server",
+  "name": "pokeforge-trade-server",
   "private": true,
   "type": "module",
   "scripts": {

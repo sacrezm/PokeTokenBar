@@ -42,7 +42,7 @@ protocol ProviderStatusProviding: Sendable {
 }
 
 /// statuspage.io summary(`.../api/v2/summary.json`)를 조회하는 기본 구현.
-/// 전체 회사 상태는 무관한 제품 장애까지 포함하므로, PokeTokenBar 가 실제 사용하는 구성요소만 읽는다.
+/// 전체 회사 상태는 무관한 제품 장애까지 포함하므로, PokéForge가 실제 사용하는 구성요소만 읽는다.
 /// 현재는 statuspage.io 를 쓰는 Claude Code·OpenAI Codex 만.
 /// Gemini(Google Workspace 피드)는 파서가 무거워 제외(추후).
 struct StatuspageStatusProvider: ProviderStatusProviding {
@@ -80,7 +80,7 @@ struct StatuspageStatusProvider: ProviderStatusProviding {
 
     private static func fetchOne(_ url: URL, componentName: String) async -> ProviderStatus? {
         var request = URLRequest(url: url, timeoutInterval: 10)
-        request.setValue("PokeTokenBar", forHTTPHeaderField: "User-Agent")
+        request.setValue("PokeForge", forHTTPHeaderField: "User-Agent")
         guard let (data, response) = try? await URLSession.shared.data(for: request),
               (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
         return parseComponent(data, named: componentName)

@@ -394,13 +394,13 @@ struct L {
           "Importiert – \(dex) im Pokédex · \(tokens) insgesamt")
     }
     var importErrorNotSaveFile: String {
-        t("PokeTokenBar 세이브 파일이 아니에요.",
-          "That isn't a PokeTokenBar save file.",
-          "PokeTokenBar のセーブファイルではありません。",
-          "Ese no es un archivo de partida de PokeTokenBar.",
-          "Ce n'est pas un fichier de sauvegarde PokeTokenBar.",
-          "Esse não é um arquivo de save do PokeTokenBar.",
-          "Das ist keine PokeTokenBar-Spielstandsdatei.")
+        t("PokéForge 세이브 파일이 아니에요.",
+          "That isn't a PokéForge save file.",
+          "PokéForge のセーブファイルではありません。",
+          "Ese no es un archivo de partida de PokéForge.",
+          "Ce n'est pas un fichier de sauvegarde PokéForge.",
+          "Esse não é um arquivo de save do PokéForge.",
+          "Das ist keine PokéForge-Spielstandsdatei.")
     }
     var importErrorNewerSchema: String {
         t("더 새로운 버전에서 만든 세이브예요 — 앱을 업데이트한 뒤 다시 시도해 주세요.",
@@ -443,37 +443,37 @@ struct L {
           "Der Import wurde abgebrochen, weil der aktuelle Stand nicht gesichert werden konnte – dein Fortschritt ist unverändert. Prüfe den freien Speicherplatz.")
     }
 
-    // MARK: 문제점 알리기 (설정 → 메일 리포트)
+    // MARK: 문제점 알리기 (설정 → GitHub 이슈 리포트)
     var reportProblem: String { t("문제점 알리기", "Report a problem", "問題を報告", "Reportar un problema", "Signaler un problème", "Relatar um problema", "Problem melden") }
     var showLogFile: String { t("로그 파일 보기", "Show log file", "ログファイルを表示", "Mostrar archivo de registro", "Afficher le fichier journal", "Mostrar arquivo de log", "Protokolldatei anzeigen") }
     var reportAttachHint: String {
-        t("메일에 로그 파일을 첨부해 주시면 원인 파악에 큰 도움이 돼요.",
-          "Attaching the log file to the email helps a lot with diagnosis.",
-          "メールにログファイルを添付していただくと原因の特定に役立ちます。",
-          "Adjuntar el archivo de registro al correo ayuda mucho a diagnosticar el problema.",
-          "Joindre le fichier journal au mail aide beaucoup au diagnostic.",
-          "Anexar o arquivo de log ao e-mail ajuda muito no diagnóstico.",
-          "Wenn du die Protokolldatei an die E-Mail anhängst, hilft das sehr bei der Fehlersuche.")
+        t("GitHub 이슈에 로그 파일을 첨부해 주시면 원인 파악에 큰 도움이 돼요.",
+          "Attaching the log file to the GitHub issue helps a lot with diagnosis.",
+          "GitHubのIssueにログファイルを添付していただくと原因の特定に役立ちます。",
+          "Adjuntar el archivo de registro a la incidencia de GitHub ayuda mucho a diagnosticar el problema.",
+          "Joindre le fichier journal à l'issue GitHub aide beaucoup au diagnostic.",
+          "Anexar o arquivo de log à issue do GitHub ajuda muito no diagnóstico.",
+          "Wenn du die Protokolldatei an das GitHub-Issue anhängst, hilft das sehr bei der Fehlersuche.")
     }
-    func reportMailFallback(_ address: String) -> String {
-        t("메일 앱을 열 수 없어요. \(address) 로 직접 보내주세요.",
-          "Couldn't open a mail app. Please email \(address) directly.",
-          "メールアプリを開けません。\(address) 宛に直接お送りください。",
-          "No se pudo abrir una app de correo. Escribe directamente a \(address).",
-          "Impossible d'ouvrir une app de messagerie. Écris directement à \(address).",
-          "Não foi possível abrir um app de e-mail. Escreva diretamente para \(address).",
-          "Es konnte keine Mail-App geöffnet werden. Schreib bitte direkt an \(address).")
+    func reportIssueFallback(_ url: String) -> String {
+        t("브라우저를 열 수 없어요. \(url) 에서 GitHub 이슈를 직접 작성해 주세요.",
+          "Couldn't open a browser. Please create a GitHub issue at \(url).",
+          "ブラウザを開けません。\(url) でGitHub Issueを直接作成してください。",
+          "No se pudo abrir un navegador. Crea una incidencia de GitHub directamente en \(url).",
+          "Impossible d'ouvrir un navigateur. Crée directement une issue GitHub sur \(url).",
+          "Não foi possível abrir um navegador. Crie uma issue do GitHub diretamente em \(url).",
+          "Es konnte kein Browser geöffnet werden. Erstelle direkt unter \(url) ein GitHub-Issue.")
     }
-    func reportMailSubject(_ version: String) -> String {
-        t("[PokeTokenBar] 문제 리포트 (v\(version))",
-          "[PokeTokenBar] Problem report (v\(version))",
-          "[PokeTokenBar] 問題レポート (v\(version))",
-          "[PokeTokenBar] Reporte de problema (v\(version))",
-          "[PokeTokenBar] Rapport de problème (v\(version))",
-          "[PokeTokenBar] Relato de problema (v\(version))",
-          "[PokeTokenBar] Problembericht (v\(version))")
+    func reportIssueTitle(_ version: String) -> String {
+        t("[PokéForge] 문제 리포트 (v\(version))",
+          "[PokéForge] Problem report (v\(version))",
+          "[PokéForge] 問題レポート (v\(version))",
+          "[PokéForge] Reporte de problema (v\(version))",
+          "[PokéForge] Rapport de problème (v\(version))",
+          "[PokéForge] Relato de problema (v\(version))",
+          "[PokéForge] Problembericht (v\(version))")
     }
-    func reportMailBody(version: String, os: String) -> String {
+    func reportIssueBody(version: String, os: String) -> String {
         t("""
         문제 내용:
         (겪으신 문제를 적어주세요 — 언제, 어떤 화면에서, 어떻게 되었는지)

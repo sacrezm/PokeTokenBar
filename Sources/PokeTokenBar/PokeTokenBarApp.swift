@@ -4,7 +4,7 @@ import SwiftUI
 
 @main
 @MainActor
-struct PokeTokenBarApp: App {
+struct PokeForgeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
@@ -196,7 +196,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
         Self.applyMenuText(lines, to: button)
         button.toolTip = updater.available != nil && store.updateNotificationsEnabled
-            ? "An app update is available — open PokeTokenBar to install"
+            ? "An app update is available — open PokéForge to install"
             : trading.hasUnreadActivity ? "New trading activity — click to open Trade" : nil
         needsSpriteLayout = true   // 텍스트 길이가 바뀌면 버튼 폭이 변해 이미지 자리도 움직인다
         // stale 시각 dim 제거 — 슬립/런치 직후 refresh 완료 전 몇 초간 회색으로 보여 '고장/비활성'

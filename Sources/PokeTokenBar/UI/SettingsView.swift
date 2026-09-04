@@ -135,12 +135,9 @@ struct SettingsView: View {
         HStack(spacing: 5) {
             Text("v\(Self.appVersion)")
             Text("·")
-            footerLink("GitHub", "https://github.com/chattymin/PokeTokenBar")
+            footerLink("GitHub", "https://github.com/sacrezm/pokeforge")
             Text("·")
-            footerLink("Web", "https://chattymin.github.io/PokeTokenBar/")
-            Text("·")
-            // 개발자 후원 — 기능 잠금·너지 없는 푸터 링크
-            footerLink("♥ Sponsor", "https://github.com/sponsors/chattymin")
+            footerLink("Upstream", "https://github.com/chattymin/PokeTokenBar")
             Spacer()
         }
         .font(.caption2)
@@ -332,7 +329,7 @@ struct SettingsView: View {
     private func updateGroup(_ store: UsageStore) -> some View {
         @Bindable var store = store
         settingsSection(l.updateSectionTitle) {
-            Text("Trading fork · GitHub Releases")
+            Text("PokéForge · GitHub Releases")
                 .font(.caption).foregroundStyle(.secondary)
             Text("Checks at launch and every hour. Update & Restart downloads and installs the update here. Your Pokémon stay on this Mac.")
                 .font(.caption2).foregroundStyle(.secondary)
@@ -706,16 +703,16 @@ struct SettingsView: View {
 
     // MARK: 동작
 
-    /// 문제점 알리기 — 진단 정보(버전·macOS)가 채워진 리포트 메일을 기본 메일 앱으로 연다.
-    /// 메일 앱이 없거나 열기에 실패하면 수신 주소를 안내(복사 가능)한다.
+    /// 문제점 알리기 — 진단 정보(버전·macOS)가 채워진 GitHub 이슈 작성 화면을 브라우저로 연다.
+    /// 브라우저가 없거나 열기에 실패하면 이슈 URL을 안내(복사 가능)한다.
     private func reportProblem() {
-        let subject = l.reportMailSubject(Self.appVersion)
-        let body = l.reportMailBody(
+        let title = l.reportIssueTitle(Self.appVersion)
+        let body = l.reportIssueBody(
             version: Self.appVersion,
             os: ProcessInfo.processInfo.operatingSystemVersionString)
-        guard let url = SupportMail.mailtoURL(subject: subject, body: body),
+        guard let url = SupportIssue.newIssueURL(title: title, body: body),
               NSWorkspace.shared.open(url) else {
-            reportError = l.reportMailFallback(SupportMail.address)
+            reportError = l.reportIssueFallback(SupportIssue.issuesNewURL.absoluteString)
             return
         }
         reportError = nil

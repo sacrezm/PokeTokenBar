@@ -1,109 +1,59 @@
-# Contributing to PokeTokenBar
+# Contributing to PokéForge
 
-**English** · [한국어](CONTRIBUTING.ko.md) · [日本語](CONTRIBUTING.ja.md)
+[English](CONTRIBUTING.md) · [한국어](CONTRIBUTING.ko.md) · [日本語](CONTRIBUTING.ja.md)
 
-Thanks for your interest in contributing! PokeTokenBar is a small, non-commercial
-fan project, and contributions of all sizes are welcome — bug reports, fixes,
-new usage providers, translations, and documentation.
+PokéForge is an independently maintained, non-commercial fan project and a fork of [chattymin/PokeTokenBar](https://github.com/chattymin/PokeTokenBar). The original MIT copyright notice remains in [LICENSE](LICENSE). Contributions are maintained in [sacrezm/pokeforge](https://github.com/sacrezm/pokeforge).
 
-Please read the short sections below before opening a pull request.
+## Before you start
 
-## Prerequisites
+- macOS 14 (Sonoma) or newer
+- Swift 6 / Xcode 16 or newer (`swift-tools-version: 6.0`)
 
-- **macOS 14 (Sonoma) or newer**
-- **Swift 6 toolchain** (Xcode 16 or newer) — required by `Package.swift`
-  (`swift-tools-version: 6.0`)
+The public product name is PokéForge. The Swift package product and app bundle use `PokeForge`, while the target/module and source paths remain `PokeTokenBar` and `Sources/PokeTokenBar` for compatibility. Do not rename those internal paths mechanically; see [the identity notes](docs/reference/pokeforge-identity.md).
 
-## Build & test
+For a local checkout, keep the remotes explicit:
 
-The project is a Swift Package. From the repository root:
-
-```bash
-swift build      # compile the app target
-swift test       # run the full test suite
+```text
+origin   https://github.com/sacrezm/pokeforge.git
+upstream https://github.com/chattymin/PokeTokenBar.git
 ```
 
-CI runs `swift build` and `swift test` on every pull request; please make sure
-both pass locally first.
+## Build and test
+
+From the repository root:
+
+```bash
+swift build
+swift test
+
+# Optional release bundle; build/PokeForge.app, no installation
+PTB_INSTALL=0 ./scripts/build-app.sh
+```
+
+The bundle script creates `PokeForge.app`; with `PTB_INSTALL=0` it does not install it. Without that variable it replaces `/Applications/PokeForge.app` after stopping the running app. CI runs `swift build`, the test and coverage gate in `scripts/test-gate.sh`, and a secret scan.
 
 ## Contribution workflow
 
-1. Create a feature branch off `main` (fork the repo if you don't have write
-   access).
-2. Make your change with tests. Keep the change focused.
-3. Open a pull request against `main`.
-4. Once CI passes and the change is reviewed, it is merged via **squash merge**.
+1. Create a focused branch from `main`.
+2. Make the smallest change that solves the problem and add meaningful tests where behavior changes.
+3. Use a Conventional Commit prefix such as `feat:`, `fix:`, `docs:`, `test:`, or `refactor:`.
+4. Open a pull request against `main` with an English title and description.
+5. Describe before and after for UI changes under `Sources/PokeTokenBar/UI/`; screenshots are optional.
 
-### Language: English first
-
-This repository uses **English as its first language** for collaboration
-artifacts:
-
-- **Pull request titles and bodies must be in English.**
-- **Commit messages should be in English.**
-
-Because the repository squash-merges, the PR title becomes the commit subject on
-`main`, so English PRs keep the public history consistent.
-
-### Commit & PR conventions
-
-- Use [Conventional Commits](https://www.conventionalcommits.org/) style:
-  `feat:`, `fix:`, `docs:`, `chore:`, `refactor:`, `test:`, etc.
-- Fill out the pull request template.
-- **UI changes** (anything under `Sources/PokeTokenBar/UI/`) should describe the
-  before/after in the PR. Screenshots or GIFs are welcome but optional — a clear
-  text description is fine. The canonical `assets/` screenshots are regenerated
-  at release, not per PR.
+Pull requests and commit messages use English first so the public history stays consistent. Fill out the pull request template and report the macOS version, app version, affected AI tool, and reproduction steps for bugs.
 
 ## Code conventions
 
-The app is provider-agnostic by design. When extending it, follow these rules
-(they are also enforced by tests):
+- **New usage source:** implement `UsageProvider` in `Sources/PokeTokenBar/Core/` and register it in the default provider list in `Sources/PokeTokenBar/Core/UsageStore.swift`.
+- **Generic usage behavior:** aggregate across providers. Provider-specific branches are reserved for provider-specific limits or behavior.
+- **New tool or version-manager path:** add it to `BinaryLocator.commonToolDirectories()`, the shared discovery and child-process `PATH` source.
+- **Append-only SQLite usage:** use `LocalAdditionalUsageReader.scanIncrementalStores` with the format-specific query and parser instead of copying the watermark loop.
+- **Roadmap clarity:** keep in-development levels, XP/EV systems, catching/training modes, and trainer battles clearly separate from shipped behavior until they are implemented and verified.
 
-- **Adding a usage source** (a new AI CLI) = implement the `UsageProvider`
-  protocol (`Sources/PokeTokenBar/Core/UsageProvider.swift`) in one new type and
-  register it in the default `providers:` array of `UsageStore.init`
-  (`Sources/PokeTokenBar/Core/UsageStore.swift`). Those are the only two places
-  you should need to touch.
-- **Generic behavior must aggregate across all providers** (today/week/month
-  totals, burn tier, companion rhythm). Do not attach a generic calculation to a
-  single provider, and do not add `providerID == "..."` literal branches on
-  generic paths. Provider-specific behavior (e.g. official limits) is the only
-  thing that may branch on `providerID`.
-- **Adding a version manager / install path** = add it to
-  `BinaryLocator.commonToolDirectories()` — the single source that discovery and
-  child-process `PATH` both share.
-- **Adding an append-only SQLite usage store** (rowid/`id` high-water, like Cursor
-  or Copilot) = call `LocalAdditionalUsageReader.scanIncrementalStores` with the
-  format-specific URL / `MAX` SQL / row query / parse. Do not copy the watermark
-  loop.
+## Legal and privacy boundaries
 
-## Legal / intellectual property
+Do not commit or bundle Pokémon or other third-party copyrighted assets, including sprites, artwork, audio, fonts, or bulk name/data files. Pokémon species data and sprites are fetched at runtime from [PokéAPI](https://pokeapi.co/) and cached locally.
 
-PokeTokenBar is an **unofficial, non-commercial fan project** and is not
-affiliated with Nintendo, Game Freak, Creatures Inc., or The Pokémon Company
-(see the disclaimer in the [README](README.md#license--disclaimer)). To keep the
-project safe to maintain and distribute, contributions **must** follow these
-rules:
+Do not commit secrets, credentials, private tooling references, or features intended for commercial use. Trading is an optional relay-backed feature: Pokémon offers are encrypted on the client, while trainer, friend, and trade metadata is visible to the selected relay. Keep that boundary clear in code and documentation.
 
-- **Do not commit or bundle any Pokémon (or other third-party) copyrighted
-  assets** — sprites, artwork, audio, fonts, or bulk name/data files. Pokémon
-  species data and sprites are fetched **at runtime** from the public
-  [PokéAPI](https://pokeapi.co) and cached locally on the user's device; keep it
-  that way.
-- **Do not add features intended for commercial use**, or features that
-  redistribute or export copyrighted assets.
-- **Do not commit secrets, credentials, or references to private/internal
-  tooling.** Keep everything in the repository generic and public-safe.
-- By submitting a contribution, you confirm it is your **own original work** and
-  agree that it is licensed under this project's [MIT License](LICENSE). The MIT
-  license covers this project's source code only — it does not grant any rights
-  to third-party trademarks, artwork, or data.
-
-## Reporting bugs & requesting features
-
-Please use the issue templates. For bugs, include your macOS version, the app
-version, which AI CLI(s) you use, and steps to reproduce.
-
-If you are a rights holder with a concern about this project, please open an
-issue or contact the maintainer, and we will respond promptly.
+By contributing, you confirm that your work is original and may be distributed under this project's [MIT License](LICENSE). That license covers this project's source code only; it grants no rights to third-party Pokémon intellectual property.

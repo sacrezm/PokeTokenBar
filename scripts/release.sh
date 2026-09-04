@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Publish this trading fork from a clean, pushed main checkout on the signing Mac.
+# Publish PokéForge from a clean, pushed main checkout on the signing Mac.
 # See docs/reference/release-workflow.md for the signing identity and 1Password reference.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-REPO="sacrezm/PokeTokenBar"
+REPO="sacrezm/pokeforge"
 VERSION="${1:?Usage: release.sh <major.minor.patch>}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Invalid version"; exit 1; }
 [[ "$(git branch --show-current)" == "main" ]] || { echo "Run on main"; exit 1; }
@@ -41,12 +41,12 @@ echo "Testing and building v$VERSION. No app installation or save changes."
 # Only the version default is changed; a failed build leaves it uncommitted for inspection.
 perl -pi -e "s/PTB_VERSION:-[0-9.]+/PTB_VERSION:-$VERSION/" scripts/build-app.sh
 PTB_INSTALL=0 PTB_UNIVERSAL=1 PTB_REQUIRE_STABLE_SIGN=1 PTB_VERSION="$VERSION" ./scripts/build-app.sh
-APP="build/PokeTokenBar.app"
+APP="build/PokeForge.app"
 BUILT=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP/Contents/Info.plist")
 [[ "$BUILT" == "$VERSION" ]] || { echo "Built version mismatch"; exit 1; }
 codesign --verify --strict "$APP"
-lipo "$APP/Contents/MacOS/PokeTokenBar" -verify_arch arm64 x86_64
-ZIP="build/PokeTokenBar-v$VERSION.zip"
+lipo "$APP/Contents/MacOS/PokeForge" -verify_arch arm64 x86_64
+ZIP="build/PokeForge-v$VERSION.zip"
 [[ ! -e "$ZIP" ]] || { echo "$ZIP already exists; inspect it before retrying"; exit 1; }
 ditto -c -k --keepParent "$APP" "$ZIP"
 
@@ -61,10 +61,10 @@ op read "$PTB_SPARKLE_KEY_REF" | .build/artifacts/sparkle/Sparkle/bin/generate_a
 [[ -s "$FEED_DIR/appcast.xml" ]] || { echo "Signed update feed missing"; exit 1; }
 
 git add scripts/build-app.sh
-git commit -m "release: trading fork v$VERSION"
+git commit -m "release: PokéForge v$VERSION"
 git push origin main
 # A draft prevents update alerts before the binary upload completes.
 gh release create "v$VERSION" "$ZIP" "$FEED_DIR/appcast.xml" --repo "$REPO" --target "$(git rev-parse HEAD)" \
-  --draft --title "PokeTokenBar Trading v$VERSION" --generate-notes
+  --draft --title "PokéForge v$VERSION" --generate-notes
 gh release edit "v$VERSION" --repo "$REPO" --draft=false --latest
 echo "Published https://github.com/$REPO/releases/tag/v$VERSION"

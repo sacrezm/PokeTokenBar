@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-    <key>CFBundleIdentifier</key><string>dev.triple-tap.PokeTokenBarUpdaterSmoke</string>
-    <key>CFBundleName</key><string>PokeTokenBar Updater Smoke</string>
+    <key>CFBundleIdentifier</key><string>dev.triple-tap.PokeForgeUpdaterSmoke</string>
+    <key>CFBundleName</key><string>PokéForge Updater Smoke</string>
     <key>CFBundleExecutable</key><string>UpdaterSmoke</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleVersion</key><string>1.0.0</string>

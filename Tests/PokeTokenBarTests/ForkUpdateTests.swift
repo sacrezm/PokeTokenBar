@@ -13,10 +13,11 @@ final class ForkUpdateTests: XCTestCase {
         return (checker, defaults, name)
     }
 
-    private func release(tag: String = "v2.6.0", repository: String = "sacrezm/PokeTokenBar",
-                         prerelease: Bool = false) -> Data {
+    private func release(tag: String = "v2.6.0", repository: String = "sacrezm/pokeforge",
+                         prerelease: Bool = false, htmlURL: String? = nil) -> Data {
         try! JSONSerialization.data(withJSONObject: [
-            "tag_name": tag, "html_url": "https://github.com/\(repository)/releases/tag/\(tag)",
+            "tag_name": tag,
+            "html_url": htmlURL ?? "https://github.com/\(repository)/releases/tag/\(tag)",
             "draft": false, "prerelease": prerelease,
         ])
     }
@@ -27,8 +28,9 @@ final class ForkUpdateTests: XCTestCase {
         let data = release()
         ForkReleaseProtocol.handler = { request in
             XCTAssertEqual(request.url?.absoluteString,
-                           "https://api.github.com/repos/sacrezm/PokeTokenBar/releases/latest")
+                           "https://api.github.com/repos/sacrezm/pokeforge/releases/latest")
             XCTAssertNil(request.value(forHTTPHeaderField: "Authorization"))
+            XCTAssertEqual(request.value(forHTTPHeaderField: "User-Agent"), "PokeForge")
             return (200, data)
         }
         await checker.check()
@@ -51,10 +53,12 @@ final class ForkUpdateTests: XCTestCase {
         XCTAssertEqual(checker.available?.version, "2.6.0")
     }
 
-    func testRejectsUpstreamPrereleaseAndInvalidVersion() async {
+    func testRejectsUpstreamWrongOwnerRedirectAndInvalidVersion() async {
         let (checker, defaults, name) = fixture()
         defer { defaults.removePersistentDomain(forName: name); ForkReleaseProtocol.handler = nil }
         for data in [release(repository: "chattymin/PokeTokenBar"),
+                     release(repository: "someoneelse/pokeforge"),
+                     release(htmlURL: "https://github.com/sacrezm/pokeforge/releases/tag/v2.6.0?redirect=upstream"),
                      release(prerelease: true), release(tag: "v99.0.0-beta"), release(tag: "v99..0")] {
             ForkReleaseProtocol.handler = { _ in (200, data) }
             await checker.check(minInterval: 0)

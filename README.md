@@ -1,296 +1,126 @@
 <div align="center">
 
-<img src="assets/icon.png" width="128" alt="PokeTokenBar icon">
+<img src="assets/icon.png" width="112" alt="PokéForge icon">
 
-# PokeTokenBar — Trading Fork
+# PokéForge
 
-**Hatch Pokémon with your AI coding tokens — then trade them with friends.**
+**Turn AI coding into Pokémon progress.**
 
-[![Trading fork release](https://img.shields.io/github/v/release/sacrezm/PokeTokenBar?color=444d56&label=trading%20release)](https://github.com/sacrezm/PokeTokenBar/releases)
-[![macOS](https://img.shields.io/badge/macOS-14%2B-0969da)](https://www.apple.com/macos/)
-[![Swift](https://img.shields.io/badge/Swift-6-f05138)](https://swift.org)
-[![Homebrew](https://img.shields.io/badge/Homebrew-cask-8957e5)](#homebrew)
-[![License](https://img.shields.io/badge/license-MIT-3fb950)](LICENSE)
-[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%99%A5-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/chattymin)
+Track the tokens your coding tools already use, raise a companion in your macOS menu bar, and grow a collection while you work.
 
-<a href="https://trendshift.io/repositories/84522?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-84522" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/84522" alt="chattymin%2FPokeTokenBar | Trendshift" width="250" height="55"/></a>
-<a href="https://trendshift.io/repositories/84522?utm_source=trendshift-badge&amp;utm_medium=badge&amp;utm_campaign=badge-trendshift-84522" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/trendshift/repositories/84522/daily?language=Swift" alt="chattymin%2FPokeTokenBar | Trendshift" width="250" height="55"/></a>
+[Releases](https://github.com/sacrezm/pokeforge/releases) · [Source](https://github.com/sacrezm/pokeforge) · [Contributing](CONTRIBUTING.md)
 
-**English** · [한국어](README.ko.md) · [日本語](README.ja.md)
+[English](README.md) · [한국어](README.ko.md) · [日本語](README.ja.md)
 
 </div>
 
-## About this fork
+> **Fork provenance:** PokéForge is an independently maintained fork of [chattymin/PokeTokenBar](https://github.com/chattymin/PokeTokenBar). The original project's MIT copyright notice remains in [LICENSE](LICENSE), and this fork is maintained at [sacrezm/pokeforge](https://github.com/sacrezm/pokeforge).
 
-This is an independently maintained fork of [chattymin/PokeTokenBar](https://github.com/chattymin/PokeTokenBar), adding **remote Pokémon trading**. Credit for the original app, token tracking, and Pokémon companion goes to the upstream project.
+## Your work, your team
 
-**In-app updates:** checks run at launch and every hour, including while the popover
-is closed. A banner, Settings, and a menu-bar arrow announce a new version.
-**Update & Restart** uses Sparkle to download, verify, install and relaunch, keeping
-your Pokémon and trainer data. Updates require your confirmation; they are not installed
-silently. Builds through 2.6.2 need one final manual installation of 2.6.3 or later
-(2.6.2 had an updater startup configuration error).
+**Code → hatch → raise → collect or trade → start again.**
 
-The trading beta adds a **Trade** tab:
+PokéForge turns the AI tokens you already use into progress for your Pokémon. Keep a favorite beside you while you work, grow your collection, and trade with friends.
 
-- Choose a trainer name and exchange friend codes. Both players must accept the friendship before trading.
-- Connect to the same relay, invite a friend, and each offer one collected Pokémon. Both players confirm the exchange.
-- Keep each Pokémon's **Original Trainer**, even after it changes hands.
-- Trade remotely over HTTPS/WebSockets, with Pokémon details encrypted on your Mac before they reach the relay. Your usage logs, prompts, and project files are not shared.
+## What ships today
 
-Trading currently supports graduated, non-released Pokémon, with no species restrictions or daily trade cap. Eggs and the active companion cannot be traded. Trading inventory is stored separately from the original catch history, which remains unchanged.
+- **Usage tracking.** Read local usage records from Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, Hermes Agent, Cursor, Grok CLI, Copilot CLI, Kiro CLI, Pi Agent, and omp. See today, week, and month totals, reported cost where available, and supported official limit windows.
+- **Hatching and evolution.** Coding usage incubates an egg, grows a companion through its real evolution line, and graduates completed Pokémon into your collection. Hatches can have rarity, nature, and shiny status.
+- **Shop.** Turn used tokens into Rare Candy, Mints, a Shiny Charm, or a fresh egg with optional Uncommon or Rare guarantees.
+- **Collection.** Browse currently owned Pokémon, a species-level Pokédex, and the individual catch log. An optional floating pet and menu-bar representative keep a favorite visible while you work.
+- **Trading.** Create a trainer, add a friend by code, and exchange one graduated Pokémon through a shared relay. Both players confirm; Original Trainer identity is retained, and supported trade evolutions apply when a Pokémon is received. Eggs and the active companion cannot be traded.
 
-**Trade evolutions:** receiving Kadabra, Machoke, Graveler, Haunter, Boldore or Gurdurr evolves it automatically. Karrablast and Shelmet evolve only when exchanged for each other. A short before/after sprite transformation and a named confirmation show the evolution; Reduce Motion skips the transformation. Original Trainer, shiny status, nature and individual identity are preserved. Evolution is saved atomically with the trade and never repeated on receipt retries. These rules follow the [PokéAPI trade evolution data](https://github.com/PokeAPI/pokeapi/blob/master/data/v2/csv/pokemon_evolution.csv).
+## What this fork changes
 
-Held-item trade evolutions are not included because this app has no held-item system. Hatch-generation preferences do not restrict trade evolutions. The receiving player needs an updated build; already-applied trades are not retroactively evolved.
+PokeTokenBar provides the original menu-bar companion, usage tracking, hatching, evolution, shop, and Pokédex. PokéForge builds on that foundation with:
 
-Both players need a trading-enabled build of this fork. The upstream Homebrew package **does not include trading**.
+| Addition | What it brings |
+| --- | --- |
+| Friends and remote trading | Friend codes, mutually confirmed trades, Original Trainer records, and supported trade evolutions. |
+| Owned collection | Individual Pokémon ownership, received Pokémon, and detail pages alongside the historical Pokédex and catch log. |
+| Hatch preferences | Choose which of Gen 1–5 can appear in future hatches. |
+| Independent distribution | PokéForge releases, signed in-app updates, and support in this repository. |
 
-The default relay is `https://poketokenbar-trade-server.triple-tap.workers.dev`. Both players must use the same relay.
+The original author and contributors retain credit for the foundation. Fork-specific issues and contributions belong here.
 
-Completed trades disappear from Trade invites and cannot be reopened, including after restarting the app. Choose **Done** to close the completed-trade panel. Receipt recovery remains available independently of the invitation list.
+## Where we’re going
 
-Received Pokémon appear in Collection and in a received-trades section of the catch log, including their Original Trainer. Completed exchanges show a sprite celebration and confirmation. While the app is running, incoming friend/trade requests are checked every 15 seconds (with backoff when offline), even with the popover closed. A menu-bar bell marks unread activity; macOS banners require notification permission and respect Focus settings. Click the bell or notification to open Trade.
+**In development:** Pokémon levels, XP, EV training, dedicated catching and training modes, and a faster collection loop with more ball choices.
 
-Collection opens on **Owned**: one row per Pokémon currently held, in its current form, including the companion being raised and received Pokémon. Earlier evolution stages do not count as extra Pokémon; two individuals of the same species still count as two. Released and traded-away Pokémon are excluded. An incubating egg is shown separately, outside the count. **Pokédex** and **Catch log** remain available as history tabs.
+**Later:** Pokémon battles against other trainers, giving the team you have raised a new purpose.
 
-Click an Owned Pokémon to open its detail page: Original Trainer, species/generation, nature, rarity, shiny status, current status, saved collection date and recorded individual/trainer IDs. Missing information in older saves is labelled “Not recorded”; the collection date is not presented as a hatch or trade date. Details use existing local records, with no additional server or invented battle stats.
+These features are not available in the current release. Trading works today; battles are a future milestone.
 
-In **Settings → Pokémon generations**, select one or more of Gen 1–5 for future hatches. All are enabled by default. The filter applies to the existing hatchable-species catalog, including premium eggs and fallback selection; normal evolutions, existing Pokémon and received trades are unaffected.
+## Screenshots
 
-## Original PokeTokenBar
+A look at the companion, shop, and Pokédex. Screenshots are from before the PokéForge rebrand, so some labels still use the original name.
 
-PokeTokenBar turns the AI coding tokens you're already burning — Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, Hermes Agent, Cursor, Grok CLI, Copilot CLI, Kiro CLI, Pi Agent & omp — into a growing **Pokémon companion** in your macOS menu bar. Spend tokens, hatch an egg, evolve it through its real evolution line, graduate it into your Pokédex, and start again. Underneath the companion it's a precise usage tracker — today's spend, cost, and official 5-hour / weekly limits, read straight from your local logs.
+<p align="center">
+  <img src="assets/screenshot-home.gif" width="360" alt="Pre-rebrand home view with companion and usage totals">
+</p>
 
-> Token usage is read directly from local Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, Hermes Agent, Cursor, Grok CLI, Copilot CLI, Kiro CLI, Pi Agent, and omp data (`totalTokens` = input + output + cache, local date) — no external CLI needed. Unofficial, non-commercial Pokémon fan project — see [License & disclaimer](#license--disclaimer).
-
-## Why
-
-- **The usage tracker you actually enjoy opening.** Your spend raises a Pokémon that hatches, evolves, graduates, and fills a Pokédex — and every shiny is a reason to check back.
-- See today's token spend & cost at a glance — no dashboard, no browser tab.
-- Track official **5-hour / weekly** limits with reset countdowns and a burn-rate forecast for when you'll hit them.
-
-<div align="center">
-<img src="assets/screenshot-home.gif" width="420" alt="Popover home — companion, today's tokens, official limits">
-</div>
-
-## How it works
-
-1. 🥚 **Code as usual.** The tokens you burn in Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, Hermes Agent, Cursor, Grok CLI, Copilot CLI, Kiro CLI, Pi Agent, or omp incubate an egg — nothing extra to run.
-2. 🐣 **Hatch.** Eggs hatch into Pokémon with real evolution lines from [PokéAPI](https://pokeapi.co/) — any Gen 1–5 line (329 possible starts), weighted by the official capture rate: commons hatch often, a legendary is a 1-in-129 event. It appears in your **Pokédex** immediately while you raise it. Every hatch rolls one of 25 natures — and once in a rare while, the egg hatches **✨ Shiny**.
-3. ⚡ **Evolve.** Keep coding and it grows through its actual evolution tree (1/2/3 stages, branching), with a little flash celebration at each step.
-4. 🎓 **Graduate & collect.** Final form + threshold permanently archives it in your **Pokédex** — rarer takes longer (≈3 days common → ≈24 days legendary at heavy use) — and a fresh egg arrives.
-5. 🍬 **Max out, get a candy.** Fill a 5-hour or weekly usage limit and you earn **Rare Candy** — spend it from the **Bag** to grow your current Pokémon.
-6. 🛒 **Spend at the Shop.** Every token you've used is spendable currency — buy **Rare Candy**, a **Mint** that re-rolls your Pokémon's nature, a **Shiny Charm** that permanently raises your shiny odds, or an egg to send off your current companion and start over. Eggs come in three grades: a plain **Pokémon Egg**, an **Uncommon Egg** guaranteed to hatch Uncommon or better, and a **Rare Egg** guaranteed to hatch Rare or better.
-
-## Tour
-
-<table>
-<tr>
-<td width="45%" align="center"><img src="assets/floating-pet.gif" width="340" alt="Floating desktop pet with a hover callout and right-click menu"></td>
-<td width="55%" valign="middle">
-<h3>🐾 Let it live on your desktop</h3>
-Move your companion out of the menu bar and onto the desktop, at any size from 48 to 192px. Hover it for today's usage, click to open the popover, right-click for a menu, drag it wherever you like — and limit alerts can appear as a speech bubble above it.
-</td>
-</tr>
-<tr>
-<td width="55%" valign="middle">
-<h3>In your menu bar</h3>
-An animated Gen-V sprite lives next to today's total tokens (compact, e.g. <code>200.7M</code>). Add today's cost (<code>$</code>) or official limit <code>%</code> — or turn everything off for a character-only bar.
-</td>
-<td width="45%" align="center"><img src="assets/menubar.gif" width="240" alt="Menu bar"></td>
-</tr>
-<tr>
-<td width="45%" align="center"><img src="assets/shiny-banner.gif" width="340" alt="Normal vs shiny"></td>
-<td width="55%" valign="middle">
-<h3>✨ Once in a rare while — Shiny</h3>
-Shiny hatches keep their distinct colors through every evolution — menu bar, home card, evolution line. In the Pokédex a ✨ sits next to the dex number, and tapping the cell swaps in the shiny colors. A dedicated notification makes sure you don't miss the moment.
-</td>
-</tr>
-<tr>
-<td width="55%" valign="middle">
-<h3>A Pokédex worth filling</h3>
-The <b>Pokédex</b> folds every species you've owned into one cell — 24 per page in dex-number order, and a ✨ on the ones you own shiny. The <b>Catch log</b> keeps the individuals: newest first, each with its full evolution line, rarity, nature, and capture date.
-</td>
-<td width="45%" align="center"><img src="assets/screenshot-collection-pokedex.png" width="300" alt="Pokédex — one cell per species"><br><br><img src="assets/screenshot-collection-catchlog.png" width="300" alt="Catch log — one row per Pokémon raised"></td>
-</tr>
-<tr>
-<td width="45%" align="center"><img src="assets/settings.png" width="300" alt="Settings"></td>
-<td width="55%" valign="middle">
-<h3>Tune it your way</h3>
-Menu-bar items, refresh interval (1–15 min or manual), launch at login, a Keychain opt-out that just hides the limits section, limit alerts with warning/critical thresholds, and companion event notifications. Full <b>KO / EN / JA / ES / FR / PT</b> UI and Pokémon names.
-</td>
-</tr>
-<tr>
-<td width="55%" valign="middle">
-<h3>🍬 Fill a limit, earn a Rare Candy</h3>
-Max out a 5-hour or weekly usage limit and you're handed a <b>Rare Candy</b> — one per 5-hour cap, five per weekly. Spend it from the new <b>Bag</b> tab to grow your current Pokémon: the moment you're rate-limited becomes the moment you level up.
-</td>
-<td width="45%" align="center"><img src="assets/screenshot-bag.png" width="300" alt="Rare Candy and Mint in the Bag"></td>
-</tr>
-<tr>
-<td width="45%" align="center"><img src="assets/screenshot-shop.png" width="300" alt="Token Shop — Mint, Rare Candy, Pokémon Egg, Uncommon Egg, Shiny Charm, Rare Egg"></td>
-<td width="55%" valign="middle">
-<h3>🛒 A shop that runs on your usage</h3>
-The tokens you've already used are your currency. Spend them in the new <b>Shop</b> tab on <b>Rare Candy</b> to grow your current Pokémon, a <b>Mint</b> to re-roll its nature, a <b>Shiny Charm</b> that permanently raises your shiny hatch odds, or an egg to send off your companion and start over. Eggs come in three grades — a plain <b>Pokémon Egg</b>, an <b>Uncommon Egg</b> that always hatches Uncommon or better, and a <b>Rare Egg</b> that always hatches Rare or better. Legendaries stay in the pool for both graded eggs, so a guaranteed hatch can still surprise you.
-</td>
-</tr>
-<tr>
-<td width="55%" valign="middle">
-<h3>📊 Official limits, now for Antigravity too</h3>
-Antigravity 2.0 and the IDE report real quota, not an estimate. Gemini models and Claude &amp; GPT models each get their own <b>5-hour</b> and <b>weekly</b> buckets with reset countdowns, alongside Claude Code and Codex. Read quietly in the background — no Keychain prompt, and the session refreshes itself.
-</td>
-<td width="45%" align="center"><img src="assets/screenshot-antigravity-limits.png" width="300" alt="Antigravity official limits — 5-hour and weekly buckets per model group"></td>
-</tr>
-<tr>
-<td width="45%" align="center"><img src="assets/screenshot-scan-folders.png" width="300" alt="Additional scan folders in Settings → Advanced"></td>
-<td width="55%" valign="middle">
-<h3>📁 Logs somewhere unusual? Point at them</h3>
-If a tool keeps its sessions outside the built-in paths, add your own roots under <b>Settings → Advanced</b> — comma or newline separated, <code>*</code> wildcards, with a live count of how many extra folders currently match. Every provider keeps its own list, so one tool's folders are never handed to another tool's parser, and your custom roots are added to the built-in ones rather than replacing them.
-</td>
-</tr>
-<tr>
-<td width="55%" valign="middle">
-<h3>🔑 Official limits without the Keychain</h3>
-If the cached limit token expires, official Claude limits used to freeze until a refresh — and that press could raise a Keychain password prompt. Paste a <b>claude.ai session key</b> under <b>Settings → Advanced</b> instead: limits then come straight from claude.ai with no Keychain access at all, auto-polling keeps them fresh, and the key is validated the moment you save it.
-</td>
-<td width="45%" align="center"><img src="assets/screenshot-session-key.png" width="300" alt="claude.ai session key in Settings → Advanced"></td>
-</tr>
-<tr>
-<td width="45%" align="center"><img src="assets/screenshot-model-breakdown.png" width="300" alt="Per-model token breakdown for Pi"></td>
-<td width="55%" valign="middle">
-<h3>🧮 One session log, several models</h3>
-Pi and its forks (like omp) can route more than one model through a single session log. Usage is now attributed to the <b>real model id</b> instead of a flat "pi", and when a day spans several models the popover breaks today's tokens down per model, biggest first.
-</td>
-</tr>
-</table>
-
-## Also in the box
-
-- **Representative Pokémon** — pin any owned Pokédex species to the menu bar and optional floating pet, independently of the companion you're raising. While pinned, the menu bar stops following egg, hatch, and evolution changes; raising progress remains visible on Home.
-- **Animation quality** — pick how smoothly the menu bar sprite and the floating pet animate (Power saver / Balanced / Smooth). Both always-visible surfaces share the setting. Power saver is the default and keeps the frame rate the app used before this setting existed; Balanced and Smooth trade battery for smoothness (measured idle CPU ~1.8% and ~5.1%).
-- **Interactive floating pet** — hover for today's usage, click to open the main window, right-click for a menu, and show limit alerts as speech bubbles.
-- **Per-service tabs** — when two or more of Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, Hermes Agent, Cursor, Grok CLI, Copilot CLI, Kiro CLI, Pi Agent, and omp are detected, compact tabs switch between them; today's total stays combined.
-- **Official limits** — Claude, Codex & Antigravity 5-hour / weekly utilization with reset countdowns, right under today's numbers.
-- **Additional scan folders** — per-provider extra scan roots for logs kept outside the built-in paths (Settings → Advanced).
-- **Burn-rate forecast** — projects when the current 5h window hits 100%.
-- **In-app updates** — one-click update check; current version shown in Settings.
-
-## Works with
-
-| Tool | Tracked | Official limits |
-|---|---|---|
-| **Claude Code** | today · 5h block · week · month | ✅ 5h / weekly |
-| **Codex** | today · week · month | ✅ 5h / weekly |
-| **Gemini CLI** | today · week · month | — |
-| **Antigravity** | today · 5h block · week · month | ✅ 5h / weekly |
-| **OpenCode** | today · 5h block · week · month | — |
-| **Hermes Agent** | today · 5h block · week · month | — |
-| **Cursor** | today · 5h block · week · month | — |
-| **Grok CLI** | today · 5h block · week · month | — |
-| **Copilot CLI** | today · 5h block · week · month | — |
-| **Kiro CLI** | today · 5h block · week · month | — (estimated) |
-| **Pi Agent** | today · 5h block · week · month | — |
-| **omp** (oh-my-pi) | today · 5h block · week · month | — |
-
-All read locally — no external usage CLI required. Adding a tool is one provider file (see [CONTRIBUTING.md](CONTRIBUTING.md)).
+<p align="center">
+  <img src="assets/screenshot-shop.png" width="250" alt="Pre-rebrand Shop view with token-funded items and eggs">
+  <img src="assets/screenshot-collection-pokedex.png" width="250" alt="Pre-rebrand Pokédex view">
+</p>
 
 ## Install
 
-Download the app ZIP from [this fork's releases](https://github.com/sacrezm/PokeTokenBar/releases), unzip it, and drag `PokeTokenBar.app` into `/Applications`. Use the built app ZIP, not GitHub's automatic source-code ZIP. Until the first fork release is published, build from source below.
+Download app archives from the [PokéForge releases](https://github.com/sacrezm/pokeforge/releases). Use the built app ZIP, not GitHub's automatically generated source archive. Unzip it and move the app inside to `/Applications`.
 
-### Updates for this fork
+This rename does not publish a new binary. The latest existing download remains `PokeTokenBar-v2.6.3.zip` and contains `PokeTokenBar.app`. The first branded release will be `PokeForge-vX.Y.Z.zip`, containing `PokeForge.app`.
 
-The app checks **sacrezm/PokeTokenBar**, never upstream, at launch, hourly while running (even with the popover closed), and when you open the popover (throttled). A newer stable release appears in the update banner, Settings, and as an arrow in the menu bar. **Update & Restart** opens Sparkle's native update window to download, verify, install and relaunch the app. Pokémon, trainer identity and preferences live outside the app bundle and are retained. Do not use an app-cleaner/uninstaller that deletes application data.
+Releases use a stable self-signed certificate and are not Apple-notarized. If macOS blocks the first launch, use its **Privacy & Security → Open Anyway** flow for the app you downloaded from this repository.
 
-Use **Settings → Updates → Check now** to check manually, including a version you previously dismissed. Clicking **Update & Restart** authorizes downloading, installation and relaunch in one action, with progress and cancellation shown in-app. Checks alone never install anything. No GitHub login or separate hosting is needed. Builds up to v2.6.2 need one final manual installation of v2.6.3 or later; v2.6.2 had an updater startup configuration error.
+### Moving from PokeTokenBar
 
-Maintainers: see [the small release workflow](docs/reference/release-workflow.md). Publishing a GitHub Release with a higher version makes it discoverable; a push to `main` alone does not.
+Existing PokeTokenBar builds, including v2.6.3, cannot discover updates after the repository rename. **Install the first PokéForge release manually once.** Subsequent updates use PokéForge’s signed in-app update flow.
 
-### Requirements
+1. In the old PokeTokenBar app, turn off **Launch at login**.
+2. Quit PokeTokenBar normally so its crash watchdog does not restart it.
+3. Download the first `PokeForge-vX.Y.Z.zip`, move `PokeForge.app` to `/Applications`, and open it.
+4. Verify your collection, trainer profile, and preferences, then enable **Launch at login** in PokéForge if you want it.
+5. Remove the old app bundle after verification. Do not use an app cleaner that deletes Application Support, preferences, or Keychain records.
 
-macOS 14+ (Apple Silicon or Intel). That's it — token usage is read directly from local Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, Hermes Agent, Cursor, Grok CLI, Copilot CLI, Kiro CLI, Pi Agent, and omp data, with no external usage CLI required.
+Do not run the old PokeTokenBar app and PokéForge as separate installations against the same data. See [the identity and upgrade notes](docs/reference/pokeforge-identity.md) for the complete compatibility boundary.
 
-### Upstream Homebrew (no trading)
+## Build from source
 
-Do not use this package to update the trading fork; it replaces it with upstream.
-
-```bash
-brew install --cask chattymin/tap/poke-token-bar
-```
-
-ad-hoc/self-signed; the cask strips the quarantine attribute on install.
-
-### Manual install (without Homebrew)
-
-Download the app ZIP from [this fork's releases](https://github.com/sacrezm/PokeTokenBar/releases), unzip it, and drag `PokeTokenBar.app` into `/Applications`.
-
-Because the app is ad-hoc/self-signed (not notarized under an Apple Developer account), Gatekeeper shows an "unidentified developer" warning on first launch. Clear it once, either way:
-
-- **Finder:** right-click (or Control-click) `PokeTokenBar.app` → **Open** → **Open** again in the dialog.
-- **Terminal:** `xattr -dr com.apple.quarantine /Applications/PokeTokenBar.app`
-
-(The Homebrew cask strips quarantine for you, so it needs no extra step.)
-
-### Build from source
+For macOS 14 or newer with Swift 6 and Xcode 16 or newer:
 
 ```bash
-swift build                  # debug
-swift test                   # unit tests
-./scripts/build-app.sh       # release → PokeTokenBar.app → /Applications
+git clone https://github.com/sacrezm/pokeforge.git
+cd pokeforge
+swift build
+swift test
+
+# Release bundle in build/PokeForge.app; do not install it
+PTB_INSTALL=0 ./scripts/build-app.sh
+
+# Release bundle, then stop the running app and install it in /Applications
+./scripts/build-app.sh
 ```
 
-## Data sources
+`scripts/build-app.sh` assembles and verifies the signed app bundle. By default it replaces `/Applications/PokeForge.app`; `PTB_INSTALL=0` builds without installing. Quit the old PokeTokenBar app first, following the migration steps above. Developer builds may fall back to ad-hoc signing; published releases require the existing stable signing identity.
 
-| Source | Used for | Notes |
-|---|---|---|
-| `~/.claude/projects/**/*.jsonl` | Claude Code daily/blocks/weekly/monthly | read directly; deduped by message id; cached incrementally |
-| `~/.gemini/tmp/**/chats/*.json(l)` | Gemini CLI daily/monthly | session records (`tokens` per message); weekly = daily sum |
-| `~/.gemini/antigravity/conversations/*.db`<br>`~/.gemini/antigravity-cli/conversations/*.db`<br>`~/.gemini/antigravity-ide/conversations/*.db` | Antigravity daily/blocks/weekly/monthly | SQLite read-only; per-call usage from the Cascade protobuf blob; supports Antigravity 2.0/Core, CLI & IDE; its own provider, not folded into Gemini; a subscription, so no cost is estimated |
-| `~/.codex/sessions/**/*.jsonl` | Codex daily/monthly | `token_count` events; weekly = daily sum |
-| `~/.local/share/opencode/opencode.db` | OpenCode daily/blocks/weekly/monthly | SQLite read-only; legacy `storage/message` JSON is also supported |
-| `~/.hermes/state.db` | Hermes Agent daily/blocks/weekly/monthly | SQLite read-only; session token totals and persisted cost |
-| `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb` | Cursor daily/blocks/weekly/monthly | SQLite read-only fallback (`cursorDiskKV` bubble `tokenCount`); when signed in, primary source is `cursor.com` dashboard API (see Privacy) |
-| `cursor.com` (dashboard API) | Cursor daily/blocks/weekly/monthly | unofficial JSON endpoint (`get-filtered-usage-events`); session from `cursorAuth/accessToken` in `state.vscdb` or `CURSOR_SESSION_TOKEN`; refetches when the provider reloads; on network error falls back to an account-scoped disk cache up to 6 h old; disable with `CURSOR_USAGE_API=0` |
-| `~/.grok/sessions/**/updates.jsonl` | Grok CLI daily/blocks/weekly/monthly | `turn_completed` records (per-turn `usage`, server-reported cost); honours `$GROK_HOME`; subagent sessions are skipped because their tokens are already folded into the parent turn |
-| `~/.copilot/session-store.db` | Copilot CLI daily/blocks/weekly/monthly | SQLite read-only; one `assistant_usage_events` row per API call; honours `$COPILOT_HOME`; `input_tokens` already contains the cached prompt, so cache reads/writes are subtracted; premium-request billing, so no cost is estimated |
-| `~/Library/Application Support/kiro-cli/data.sqlite3`<br>`~/.kiro/sessions/cli/*.jsonl`<br>`~/.kiro/sessions/<ws>/<session>/messages.jsonl` | Kiro CLI daily/blocks/weekly/monthly | Pre-2.20 SQLite plus 2.20+ / `--v3` JSONL; neither store records real token counts, so input is a bytes÷4 **estimate** of accumulated conversation text resent on every turn; `usage_summary` credits are not converted to USD; a `/clear`d SQLite conversation's already-counted tokens stay counted until the app restarts; honours `$KIRO_CLI_HOME` and `$KIRO_HOME` |
-| `~/.pi/agent/sessions/**/*.jsonl` | Pi Agent daily/blocks/weekly/monthly | Direct persisted usage from all projects; `$PI_CODING_AGENT_DIR` and `$PI_CODING_AGENT_SESSION_DIR` overrides supported; output already includes reasoning (not counted twice); forked history deduplicated by entry ID; no cost is reported |
-| `~/.omp/agent/sessions/**/*.jsonl` | omp (oh-my-pi) daily/blocks/weekly/monthly | pi-format session JSONL; every assistant `usage` event is summed (rewound branches are already billed) and subagent session files count too, since their tokens are not folded into the parent; honours `$OMP_CODING_AGENT_DIR`; per-event `cost` is trusted when reported; `bridge/` conversion copies are skipped because their originals are already counted at the source |
-| Keychain / `~/.claude/.credentials.json` → `api.anthropic.com` | Claude official 5h/weekly % | unofficial endpoint; the Keychain is read **only when you press refresh** — auto-polling never reads it |
-| `codex app-server` | Codex official 5h/weekly % | local child process; account snapshot only, no model turn |
-| [PokéAPI](https://pokeapi.co/) — `pokeapi.co`, `graphql.pokeapi.co` | Pokémon species &amp; evolution | runtime fetch; cached locally, never bundled |
-| `raw.githubusercontent.com/PokeAPI/sprites` | Pokémon &amp; item sprites | runtime fetch; cached under Application Support, never bundled |
-| `status.claude.com`, `status.openai.com` | provider incident banner | statuspage summary; display only — turn it off in Settings |
-| `api.github.com` | update check | latest release tag; at launch, hourly, and when the popover opens (throttled) |
-| `github.com` and GitHub release-download hosts | app updates | signed appcast and app archive, fetched when you choose to update |
+### Your existing collection
 
-If a provider's logs live **outside** those built-in paths, add the folder in **Settings → Advanced → Additional scan folders**. Pick the provider first — each folder is parsed only by that provider, so pointing a Gemini field at Claude logs would mis-attribute tokens. Extra folders are added to the built-in locations; they never replace them.
+PokéForge keeps the existing save locations, trainer credentials, and preferences. Some internal identifiers and historical releases retain the PokeTokenBar name for compatibility. The [identity notes](docs/reference/pokeforge-identity.md) explain these choices for contributors.
 
-## Privacy & permissions
+## Privacy and trading
 
-The upstream usage-tracking behavior is described below. This fork additionally connects to your chosen trading relay when you use Trade: the relay stores trainer profiles, public keys, friendship and trade metadata, and encrypted trade payloads. Trading credentials and private keys stay in macOS Keychain. Pokémon contents are encrypted, but social metadata is visible to the relay. In-app updates also contact GitHub and its release-download hosts for the signed update feed and app archive; they do not upload your Pokémon or usage data.
+Usage aggregation reads your AI tools' local logs or databases. The app does not send usage logs, prompts, or project paths to the trading relay. Some provider integrations make network requests for official limits or account usage, and the app contacts GitHub for release checks and downloads.
 
-- **On-device first.** Token usage is read directly from local Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, Hermes Agent, Cursor, Grok CLI, Copilot CLI, Kiro CLI, Pi Agent, and omp data. The app never uploads usage or runs model turns.
-- **Outbound requests.** The app is not fully offline. It talks to twelve hosts: `pokeapi.co` and `graphql.pokeapi.co` (species/evolution), `raw.githubusercontent.com` (sprites), `api.anthropic.com` (Claude official limits), `claude.ai` (Claude official limits when you save an optional claude.ai session key in Settings — the key only, no prompts or project paths), `cursor.com` (Cursor usage summary when you are signed into Cursor locally — session credential only, no prompts or project paths), `cloudcode-pa.googleapis.com` and `daily-cloudcode-pa.googleapis.com` (Antigravity official limits) plus `oauth2.googleapis.com` (their token refresh), `status.claude.com` and `status.openai.com` (incident banner — off switch in Settings), and `api.github.com` (update check). **None of them carry your usage logs, prompts, or project paths** — only the request itself (Cursor sends your session cookie to fetch your own usage rows, same as the web dashboard).
-- **Keychain (optional for Claude limits).** The Claude OAuth credential is read **only when you press a refresh button** (Settings, or the limits row in the popover). Automatic polling for these limits never touches the Keychain, so it never raises a password prompt; when `~/.claude/.credentials.json` is present, each poll re-reads it, so an in-place `/login` to another account is picked up without pressing refresh. This OAuth token is held in memory only. If there is no credentials file, limits stay on the cached token until it expires or you refresh. Turn it off in Settings — the limits section simply hides. Trading uses separate Keychain items.
-- **Pokémon assets** are fetched at runtime from PokéAPI and cached only under `~/Library/Application Support/PokeTokenBar/`. The app binary and its release artifacts contain no Pokémon assets.
+Optional Claude session-key mode stores the supplied credential in a local file with owner-only permissions, rather than Keychain. This is separate from trading credentials.
 
-## Contributors
+Pokémon species, evolution data, and sprites are fetched at runtime and cached locally; Pokémon assets are not bundled in the app or release archives.
 
-Contributions of all sizes are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for how to build, test, and open a pull request.
+Trading is opt-in and relay-based. The relay receives the trainer profile, friend code, public key, and friendship/trade metadata. Pokémon offers are encrypted on this Mac before transmission, but relay-visible metadata can still be stored by the relay. Trading private keys and bearer credentials stay in macOS Keychain. Use only a relay you trust.
 
-[![Contributors](https://contrib.rocks/image?repo=chattymin/PokeTokenBar)](https://github.com/chattymin/PokeTokenBar/graphs/contributors)
+## License and disclaimer
 
-## License & disclaimer
+The original project source and this fork are released under the [MIT License](LICENSE); the original `chattymin` copyright notice is retained. MIT covers this project's source code and grants no rights to Pokémon trademarks, artwork, sprites, or data.
 
-**MIT** — see [LICENSE](LICENSE). The MIT license covers this project's original source code only; it grants no rights to any third-party trademarks, artwork, or data accessed through the app.
+PokéForge is an unofficial, non-commercial fan project. It is not affiliated with, endorsed by, or sponsored by Nintendo, Game Freak, Creatures Inc., or The Pokémon Company. Pokémon data and sprites are fetched at runtime from [PokéAPI](https://pokeapi.co/) and remain the property of their respective owners.
 
-PokeTokenBar is an **unofficial, non-commercial fan project**. It is **not affiliated with, endorsed, sponsored, or approved by Nintendo, Game Freak, Creatures Inc., or The Pokémon Company.** "Pokémon" and all related names, characters, and imagery are trademarks and copyrights of their respective owners. This project claims no ownership of, and asserts no rights over, any Pokémon intellectual property.
-
-- **The app binary and its release artifacts bundle no Pokémon assets.** Pokémon species data and sprites are fetched **at runtime** from the public [PokéAPI](https://pokeapi.co) and cached locally on the user's own device; sprite images served via PokéAPI remain the property of their respective owners.
-- Any Pokémon imagery in this repository's documentation (screenshots/GIFs) is shown solely to illustrate the app's functionality.
-- The app is provided free of charge for **personal, non-commercial use only.**
-- If you are a rights holder with any concern about this project, please open an issue or contact the maintainer, and we will respond promptly.
-
-*Provided "as is", without warranty of any kind. This notice is not legal advice.*
+See [CONTRIBUTING.md](CONTRIBUTING.md) before opening an issue or pull request.

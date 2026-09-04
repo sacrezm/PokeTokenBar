@@ -10,7 +10,7 @@ final class UpdateChecker {
     private(set) var available: Available?
 
     let currentVersion: String
-    nonisolated static let repository = "sacrezm/PokeTokenBar"
+    nonisolated static let repository = "sacrezm/pokeforge"
     private let clock: () -> Date
     private let session: URLSession
     private let defaults: UserDefaults
@@ -65,7 +65,7 @@ final class UpdateChecker {
         guard let url = URL(string: "https://api.github.com/repos/\(Self.repository)/releases/latest") else { return }
         var req = URLRequest(url: url, timeoutInterval: 15)
         req.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        req.setValue("PokeTokenBar-Trading", forHTTPHeaderField: "User-Agent")
+        req.setValue("PokeForge", forHTTPHeaderField: "User-Agent")
         guard let (data, resp) = try? await session.data(for: req) else { checkFailed = true; return }
         if (resp as? HTTPURLResponse)?.statusCode == 404 {
             available = nil

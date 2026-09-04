@@ -608,7 +608,7 @@ final class UsageStore {
         isRefreshing = true
         // App Nap 방지 — 백그라운드 스로틀로 로그 파싱·codex 조회가 타임아웃되는 것을 막는다 (시스템 슬립은 허용)
         let activity = ProcessInfo.processInfo.beginActivity(
-            options: .userInitiatedAllowingIdleSystemSleep, reason: "PokeTokenBar usage refresh")
+            options: .userInitiatedAllowingIdleSystemSleep, reason: "PokéForge usage refresh")
         defer {
             ProcessInfo.processInfo.endActivity(activity)
             isRefreshing = false
