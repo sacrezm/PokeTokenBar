@@ -11,8 +11,8 @@ private func rcLine(base: Int, tree: EvoNode, rarity: Rarity = .common) -> EvoLi
     for id in ids(tree) { names[id] = ["en": "P\(id)", "ko": "포\(id)", "ja": "ポ\(id)"] }
     return EvoLine(baseID: base, tree: tree, rarity: rarity, names: names)
 }
-private let rcLinear3 = rcLine(base: 1, tree: rcNode(1, [rcNode(2, [rcNode(3)])]))   // 커먼 3형태: 125M/250M/375M
-private let rcNoEvo = rcLine(base: 20, tree: rcNode(20))                              // 커먼 1형태: 750M 단일
+private let rcLinear3 = rcLine(base: 1, tree: rcNode(1, [rcNode(2, [rcNode(3)])]))   // 커먼 3형태
+private let rcNoEvo = rcLine(base: 20, tree: rcNode(20))                              // 커먼 1형태
 private let rcNow = Date(timeIntervalSince1970: 1_700_000_000)
 
 private func w(_ key: String, _ kind: WindowClass, _ util: Double, name: String = "T") -> CandyWindow {
@@ -219,72 +219,97 @@ final class RareCandyStoreTests: XCTestCase {
 
     // MARK: 사용
 
-    /// 사탕 XP(100M) < 최소 임계(125M) → 진화 못 시키는 케이스는 부분 진행(.progressed), 통계 불변.
+    /// 사탕은 선택한 포켓몬의 레벨만 1 올리고, 포획 진행·EV·통계를 건드리지 않는다.
     func testUseProgressesWithoutEvolution() async {
         let s = store(rcLinear3)
         await s.hatch(baseID: 1)
         giveCandies(s, 1)
         XCTAssertEqual(s.rareCandyCount, 1)
-        let before = s.state.usedSinceInstall
+        let beforeProgression = s.state.active!.progression
+        let beforeUsedAtStage = s.state.active!.usedAtStage
+        let beforeUsedSinceInstall = s.state.usedSinceInstall
+        let beforeSpecies = s.currentSpeciesID
         let result = s.useRareCandy()
         XCTAssertEqual(result, .progressed)
-        XCTAssertEqual(s.state.active?.usedAtStage, RareCandy.xp)
+        let afterProgression = s.state.active!.progression
+        XCTAssertEqual(afterProgression.level, beforeProgression.level + 1)
+        XCTAssertGreaterThan(afterProgression.totalExperience, beforeProgression.totalExperience)
+        XCTAssertEqual(afterProgression.evs, beforeProgression.evs, "사탕은 EV를 올리지 않음")
+        XCTAssertEqual(s.state.active?.usedAtStage, beforeUsedAtStage, "사탕은 포획 진행을 올리지 않음")
         XCTAssertEqual(s.state.active?.stageIndex, 0)
+        XCTAssertEqual(s.currentSpeciesID, beforeSpecies, "사탕은 진화시키지 않음")
         XCTAssertEqual(s.rareCandyCount, 0, "재고 1 소모")
-        XCTAssertEqual(s.state.usedSinceInstall, before, "사탕 XP 는 실사용 통계에 안 잡힘")
+        XCTAssertEqual(s.state.usedSinceInstall, beforeUsedSinceInstall, "사탕은 실사용 통계에 안 잡힘")
     }
 
-    /// 잔여가 사탕XP 이하인 단계에서 사용 → 정확히 1단계 진화.
-    func testUseEvolvesWhenCrossingThreshold() async {
+    /// 포획 임계 직전이어도 사탕 사용은 진화가 아니라 레벨만 올린다.
+    func testUseDoesNotEvolveWhenCrossingCatchThreshold() async {
         let s = store(rcLinear3)
         await s.hatch(baseID: 1)
-        s.applyUsage(50_000_000)   // stage0(125M) 잔여 75M ≤ 100M
+        let firstThreshold = PokemonBalance.phaseThreshold(rarity: .common, totalForms: 3, stageIndex: 0)
+        s.applyUsage(firstThreshold - 1)
+        let beforeProgression = s.state.active!.progression
+        let beforeUsedAtStage = s.state.active!.usedAtStage
         giveCandies(s, 1)
         let result = s.useRareCandy()
-        XCTAssertEqual(result, .evolved)
-        XCTAssertEqual(s.currentSpeciesID, 2)
-        XCTAssertEqual(s.state.active?.stageIndex, 1)
+        XCTAssertEqual(result, .progressed)
+        XCTAssertEqual(s.state.active?.progression.level, beforeProgression.level + 1)
+        XCTAssertEqual(s.state.active?.progression.evs, beforeProgression.evs)
+        XCTAssertEqual(s.state.active?.usedAtStage, beforeUsedAtStage)
+        XCTAssertEqual(s.currentSpeciesID, 1, "사탕은 진화시키지 않음")
+        XCTAssertEqual(s.state.active?.stageIndex, 0)
     }
 
-    /// [불변식] 사탕 1개 = 최대 1단계 — 임계 직전(124M)에서 써도 2단계 연쇄 안 됨.
-    func testSingleCandyAdvancesAtMostOneStage() async {
+    /// 사탕을 여러 번 써도 매번 선택한 포켓몬의 레벨만 1씩 오르고 진화하지 않는다.
+    func testRepeatedCandyLevelsWithoutEvolution() async {
         let s = store(rcLinear3)
         await s.hatch(baseID: 1)
-        s.applyUsage(124_000_000)   // stage0 임계 직전
-        giveCandies(s, 1)
-        _ = s.useRareCandy()        // +100M → 224M: stage0(125M) 1회만, stage1(250M) 미달
-        XCTAssertEqual(s.state.active?.stageIndex, 1, "최대 1단계")
+        let beforeProgression = s.state.active!.progression
+        let beforeUsedAtStage = s.state.active!.usedAtStage
+        giveCandies(s, 2)
+        XCTAssertEqual(s.useRareCandy(), .progressed)
+        XCTAssertEqual(s.useRareCandy(), .progressed)
+        XCTAssertEqual(s.state.active?.progression.level, beforeProgression.level + 2)
+        XCTAssertEqual(s.state.active?.progression.evs, beforeProgression.evs)
+        XCTAssertEqual(s.state.active?.usedAtStage, beforeUsedAtStage)
+        XCTAssertEqual(s.state.active?.stageIndex, 0)
+        XCTAssertEqual(s.currentSpeciesID, 1)
+        XCTAssertEqual(s.rareCandyCount, 0)
     }
 
-    /// 최종단계에서 잔여가 사탕XP 이하면 졸업 → 도감 + 새 알.
-    func testUseGraduatesFinalStage() async {
+    /// 최종 단계의 포획 진행 직전에도 사탕은 졸업시키지 않는다.
+    func testCandyDoesNotGraduateCompletedCatchMeter() async {
         let s = store(rcNoEvo)
         await s.hatch(baseID: 20)
-        s.applyUsage(700_000_000)   // 졸업 총량 750M 잔여 50M ≤ 100M
+        let graduation = PokemonBalance.graduationTotal(.common)
+        s.applyUsage(graduation - 1)
+        let beforeProgression = s.state.active!.progression
+        let beforeUsedAtStage = s.state.active!.usedAtStage
         giveCandies(s, 1)
         let result = s.useRareCandy()
-        XCTAssertEqual(result, .graduated)
-        XCTAssertNil(s.state.active)
-        XCTAssertEqual(s.dexEntries.count, 1)
+        XCTAssertEqual(result, .progressed)
+        XCTAssertNotNil(s.state.active)
+        XCTAssertEqual(s.state.active?.progression.level, beforeProgression.level + 1)
+        XCTAssertEqual(s.state.active?.progression.evs, beforeProgression.evs)
+        XCTAssertEqual(s.state.active?.usedAtStage, beforeUsedAtStage)
+        XCTAssertEqual(s.state.active?.stageIndex, 0)
+        XCTAssertTrue(s.state.dex.isEmpty)
     }
 
-    /// [회귀] 사탕 졸업은 store 폴링 틱 없이도 스프라이트 정체성(currentSpeciesID/currentIsShiny)
-    /// 관찰을 발화해야 한다 — AppDelegate.observeCompanionSprite 가 이 발화로 메뉴바 스프라이트를 즉시
-    /// 갱신한다. 발화가 없으면 메뉴바가 다음 사용량 폴링(기본 120s)까지 이전 포켓몬으로 남는다
-    /// (리포트: 사탕 졸업 직후 메뉴바 잔상). 진화(.evolved)도 같은 applyUsage 경로라 함께 보호된다.
-    func testCandyGraduationFiresSpriteIdentityObservation() async {
-        let s = store(rcNoEvo)
-        await s.hatch(baseID: 20)
-        s.applyUsage(700_000_000)   // 졸업 총량 750M 잔여 50M ≤ 100M
-        giveCandies(s, 1)
+    /// [회귀] 실제 포획 사용량으로 진화하면 스프라이트 정체성 관찰이 즉시 발화한다.
+    func testEvolutionFiresSpriteIdentityObservation() async {
+        let s = store(rcLinear3)
+        await s.hatch(baseID: 1)
+        let firstThreshold = PokemonBalance.phaseThreshold(rarity: .common, totalForms: 3, stageIndex: 0)
         let fired = expectation(description: "sprite identity observation fired")
         withObservationTracking {
             _ = s.currentSpeciesID
             _ = s.currentIsShiny
         } onChange: { fired.fulfill() }
-        XCTAssertEqual(s.useRareCandy(), .graduated)
+        s.applyUsage(firstThreshold)
         await fulfillment(of: [fired], timeout: 1)
-        XCTAssertNil(s.currentSpeciesID, "졸업 → 알(메뉴바 스프라이트 키 nil)")
+        XCTAssertEqual(s.currentSpeciesID, 2, "포획 진화 후 새 스프라이트 ID가 관찰돼야 함")
+        XCTAssertEqual(s.state.active?.stageIndex, 1)
     }
 
     /// 알(부화 전)에는 사용 불가 — 재고가 있어도 소모되지 않는다.
@@ -306,9 +331,8 @@ final class RareCandyStoreTests: XCTestCase {
         XCTAssertEqual(s.useRareCandy(), .unavailable)
     }
 
-    /// [회귀 가드] 활성 포켓몬이 있어도 라인 미로딩(재시작 직후·오프라인)이면 사용 불가 —
-    /// 진화 없이 XP만 적립되는 것 방지. 재고가 있어도 소모되지 않는다.
-    func testCannotUseWhileLineUnloaded() {
+    /// 라인 미로딩(재시작 직후·오프라인)이어도 선택된 포켓몬에게 사탕을 사용할 수 있다.
+    func testCanUseWhileLineUnloaded() {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("rc-unloaded-\(UUID().uuidString).json")
         // 활성 포켓몬 + 사탕 1 + 시드완료 상태를 저장 → RCLineThrows 로 로드하면 currentLine 이 nil.
         let json = #"{"installBaselineSet":true,"lastDate":"d1","active":{"baseID":1,"pathIDs":[1],"stageIndex":0,"usedAtStage":0,"rarity":"common","totalForms":3},"inventory":{"rareCandy":1},"candyFeatureSeeded":true,"dex":[],"collectedFinals":[]}"#
@@ -317,9 +341,14 @@ final class RareCandyStoreTests: XCTestCase {
         XCTAssertNotNil(s.state.active, "활성 포켓몬 로드")
         XCTAssertNil(s.currentLine, "라인 미로딩(throws)")
         XCTAssertEqual(s.rareCandyCount, 1)
-        XCTAssertFalse(s.canUseRareCandy)
-        XCTAssertEqual(s.useRareCandy(), .unavailable)
-        XCTAssertEqual(s.rareCandyCount, 1, "라인 미로딩 시 사탕 소모 안 됨")
+        let before = s.state.active!.progression
+        let beforeUsedAtStage = s.state.active!.usedAtStage
+        XCTAssertTrue(s.canUseRareCandy)
+        XCTAssertEqual(s.useRareCandy(), .progressed)
+        XCTAssertEqual(s.state.active?.progression.level, before.level + 1)
+        XCTAssertEqual(s.state.active?.progression.evs, before.evs)
+        XCTAssertEqual(s.state.active?.usedAtStage, beforeUsedAtStage)
+        XCTAssertEqual(s.rareCandyCount, 0, "라인 미로딩이어도 사탕은 선택 대상에게 사용됨")
     }
 
     /// 사용 시 "+XP" 피드백 seq 가 증가(진화 없이 부분 진행이어도).
@@ -328,9 +357,12 @@ final class RareCandyStoreTests: XCTestCase {
         await s.hatch(baseID: 1)
         giveCandies(s, 1)
         let before = s.candyFeedbackSeq
-        _ = s.useRareCandy()
+        let beforeXP = s.state.active!.progression.totalExperience
+        XCTAssertEqual(s.useRareCandy(), .progressed)
+        let afterXP = s.state.active!.progression.totalExperience
         XCTAssertEqual(s.candyFeedbackSeq, before + 1)
-        XCTAssertEqual(s.candyFeedbackAmount, RareCandy.xp)
+        XCTAssertEqual(s.candyFeedbackAmount, afterXP - beforeXP, "피드백은 실제 레벨업 XP 차이여야 함")
+        XCTAssertGreaterThan(s.candyFeedbackAmount, 0)
     }
 
     /// ownedItems 는 개수>0 아이템만 노출.
@@ -342,18 +374,21 @@ final class RareCandyStoreTests: XCTestCase {
         XCTAssertEqual(s.ownedItems.first?.count, 3)
     }
 
-    /// 데모 시나리오(구구 3형태, usedAtStage 100M, 사탕 3): 진화 → 부분성장 → 진화, 그 뒤 재고 0.
-    func testSequentialCandyUseMatchesDemo() async {
+    /// 사탕 3개는 선택한 포켓몬의 레벨을 3 올리며 포획 진화 상태는 그대로 둔다.
+    func testSequentialCandyUseRaisesOneLevelEachTime() async {
         let s = store(rcLinear3)
         await s.hatch(baseID: 1)
-        s.applyUsage(100_000_000)                      // stage0(125M) 도달 전
+        let beforeProgression = s.state.active!.progression
+        let beforeUsedAtStage = s.state.active!.usedAtStage
         giveCandies(s, 3)
-        XCTAssertEqual(s.useRareCandy(), .evolved)     // 200M ≥125M → stage1, 이월 75M
-        XCTAssertEqual(s.state.active?.stageIndex, 1)
-        XCTAssertEqual(s.useRareCandy(), .progressed)  // 175M <250M → 부분성장
-        XCTAssertEqual(s.state.active?.stageIndex, 1)
-        XCTAssertEqual(s.useRareCandy(), .evolved)     // 275M ≥250M → stage2
-        XCTAssertEqual(s.state.active?.stageIndex, 2)
+        for _ in 0..<3 {
+            XCTAssertEqual(s.useRareCandy(), .progressed)
+        }
+        XCTAssertEqual(s.state.active?.progression.level, beforeProgression.level + 3)
+        XCTAssertEqual(s.state.active?.progression.evs, beforeProgression.evs)
+        XCTAssertEqual(s.state.active?.usedAtStage, beforeUsedAtStage)
+        XCTAssertEqual(s.state.active?.stageIndex, 0)
+        XCTAssertEqual(s.currentSpeciesID, 1)
         XCTAssertEqual(s.rareCandyCount, 0)
     }
 
@@ -362,8 +397,10 @@ final class RareCandyStoreTests: XCTestCase {
         let s = store(rcLinear3)
         await s.hatch(baseID: 1)
         giveCandies(s, 1)
-        _ = s.useRareCandy()
-        XCTAssertEqual(s.candyFeedbackAmount, RareCandy.xp)
+        let beforeXP = s.state.active!.progression.totalExperience
+        XCTAssertEqual(s.useRareCandy(), .progressed)
+        let afterXP = s.state.active!.progression.totalExperience
+        XCTAssertEqual(s.candyFeedbackAmount, afterXP - beforeXP)
         s.consumeCandyFeedback()
         XCTAssertEqual(s.candyFeedbackAmount, 0, "consume 후 0 — CompanionHeader 재마운트 시 재생 안 됨")
     }

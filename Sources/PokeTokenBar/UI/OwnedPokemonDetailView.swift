@@ -23,6 +23,9 @@ struct OwnedPokemonDetailView: View {
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
+                    ProgressionSummaryView(progression: pokemon.progression, compact: true)
+                    Text("Level progression is separate from the catching evolution cycle.")
+                        .font(.caption2).foregroundStyle(.secondary)
                     Divider()
                     detail("Original Trainer", pokemon.originalTrainerLabel)
                     detail("Status", pokemon.isRaising ? "Raising now" : "Owned")

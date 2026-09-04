@@ -56,6 +56,8 @@ final class TradingFeature {
     private(set) var completion: TradeReceipt?
     private(set) var hasUnreadActivity = false
     @ObservationIgnored var onActivity: ((TradingActivity) -> Void)?
+    @ObservationIgnored var onInventoryChange: (([TradePokemon], [TradePokemon], Set<String>) -> Void)?
+    @ObservationIgnored var currentProgression: ((String) -> PokemonProgression?)?
     private(set) var activeTrade: ActiveTrade?
     private(set) var lastError: String?
 
@@ -98,6 +100,16 @@ final class TradingFeature {
     }
 
     var serverURL: String { baseURL.absoluteString }
+
+    var progressionLockedIDs: Set<String> {
+        var result = Set(pending.values.compactMap { record in
+            record.outgoingCreatureID.isEmpty ? nil : record.outgoingCreatureID
+        })
+        if let creatureID = activeTrade?.localPokemon?.creatureID {
+            result.insert(creatureID)
+        }
+        return result
+    }
 
     func setServerURL(_ value: String) throws {
         guard let url = URL(string: value.trimmingCharacters(in: .whitespacesAndNewlines)),
@@ -194,6 +206,7 @@ final class TradingFeature {
         // The v1 receipt ID is the trade ID. Reuse the durable ownership ledger,
         // including receipts applied before this fix, instead of a second cache.
         invites.removeAll { state.appliedReceiptIDs.contains($0.tradeID) }
+        onInventoryChange?(heldInventory, receivedInventory, transferredIDs)
     }
 
     /// Notify only after the durable local write, and never replay an applied receipt.
@@ -218,7 +231,11 @@ final class TradingFeature {
         let projected = CompanionCollectionAdapter(store: store).snapshot(
             trainerID: trainerID, trainerName: trainerName
         )
-        heldInventory = try await sidecar.reconcile(local: projected)
+        _ = try await sidecar.reconcile(
+            local: projected,
+            progressionOverrides: store.trainingProgressionOverrides
+        )
+        try await refreshLocalInventory()
     }
 
     func register(trainerName requestedName: String? = nil) async throws {
@@ -366,13 +383,24 @@ final class TradingFeature {
 
     func offer(_ pokemon: TradePokemon) async throws {
         guard let trade = activeTrade, trainerID != nil else { throw TradingFeatureError.notRegistered }
-        guard try await sidecar.heldInventory().contains(where: { $0.creatureID == pokemon.creatureID }) else {
+        let heldInventory = try await sidecar.heldInventory()
+        guard let heldPokemon = heldInventory.first(where: { $0.creatureID == pokemon.creatureID }) else {
             throw TradingSidecarError.outgoingNotHeld(pokemon.creatureID)
         }
+        guard activeTrade?.tradeID == trade.tradeID else {
+            throw TradingFeatureError.invalidResponse
+        }
+        var offered = heldPokemon
+        if let currentProgression = currentProgression?(offered.creatureID) {
+            offered.progression = PokemonProgression.preservingProgress(
+                existing: offered.progression,
+                incoming: currentProgression
+            )
+        }
         let peerIdentity = TrainerIdentity(agreementPublicKey: trade.peer.agreementPublicKey)
-        let encrypted = try TradeCrypto.encrypt(pokemon, tradeID: trade.tradeID,
+        let encrypted = try TradeCrypto.encrypt(offered, tradeID: trade.tradeID,
                                                   recipient: peerIdentity, using: identityStore)
-        pending[trade.tradeID] = PendingTrade(outgoingCreatureID: pokemon.creatureID, peerID: trade.peer.id)
+        pending[trade.tradeID] = PendingTrade(outgoingCreatureID: offered.creatureID, peerID: trade.peer.id)
         persistPending()
         try await send(type: "trade.offer", tradeID: trade.tradeID, body: [
             "recipientId": trade.peer.id,
@@ -380,7 +408,7 @@ final class TradingFeature {
             "ciphertext": b64(encrypted.ciphertext),
             "tag": b64(encrypted.tag),
         ])
-        activeTrade?.localPokemon = pokemon
+        activeTrade?.localPokemon = offered
         activeTrade?.localOffer = encrypted
     }
 

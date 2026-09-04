@@ -622,13 +622,13 @@ struct L {
     var eggImminent: String { t("곧 부화해요!", "About to hatch!", "もうすぐ孵化！", "¡Está a punto de eclosionar!", "Sur le point d'éclore !", "Está quase chocando!", "Schlüpft gleich!") }
     /// 첫 실행(아직 토큰 적립 0) 안내 — "왜 아무 일도 안 일어나지"를 방지.
     var eggFirstRunHint: String {
-        t("로컬 AI 코딩 도구의 사용량으로 자라요. 약 5M 토큰을 쓰면 알이 부화해요.",
-          "Grows from your local AI coding usage. Your egg hatches after ~5M tokens.",
-          "ローカルの AI コーディング使用量で育ちます。約5Mトークンでタマゴが孵化します。",
-          "Crece con el uso de tus herramientas locales de programación con IA. Tu huevo eclosiona tras unos 5M de tokens.",
-          "Il grandit avec l'usage de tes outils de code IA locaux. Ton œuf éclôt après environ 5M de tokens.",
-          "Cresce com o uso das suas ferramentas locais de programação com IA. O ovo choca depois de uns 5M de tokens.",
-          "Wächst mit der Nutzung deiner lokalen KI-Coding-Tools. Nach etwa 5M Tokens schlüpft dein Ei.") }
+        t("포획에 배분한 토큰으로 자라요. 부화까지 필요한 토큰은 위에 표시돼요.",
+          "Grows with tokens allocated to Catch. Tokens needed to hatch are shown above.",
+          "キャッチに割り当てたトークンで育ちます。孵化までの必要数は上に表示されます。",
+          "Crece con los tokens asignados a Captura. Arriba se muestran los tokens necesarios para eclosionar.",
+          "Grandit avec les tokens alloués à la capture. Le nombre nécessaire à l'éclosion est indiqué ci-dessus.",
+          "Cresce com os tokens destinados à captura. Os tokens necessários para chocar aparecem acima.",
+          "Wächst mit Tokens im Fangmodus. Die zum Schlüpfen benötigten Tokens stehen oben.") }
     var notifEvolveTitle: String { t("✨ 진화!", "✨ Evolved!", "✨ 進化！", "✨ ¡Evolucionó!", "✨ Évolution !", "✨ Evoluiu!", "✨ Entwicklung!") }
     func notifEvolveBody(_ name: String) -> String { t("\(name)(으)로 진화했어요!", "Evolved into \(name)!", "\(name) に進化しました！", "¡Evolucionó a \(name)!", "A évolué en \(name) !", "Evoluiu para \(name)!", "Hat sich zu \(name) entwickelt!") }
     // 메타몽 위장 리빌 — 진화 못 하는 메타몽이 첫 진화 순간 정체를 드러낸다.
@@ -784,14 +784,13 @@ struct L {
     func itemDescription(_ kind: ItemKind) -> String {
         switch kind {
         case .rareCandy:
-            let xp = TokenFormatter.compact(RareCandy.xp)   // 상수에서 파생(하드코딩 드리프트 방지)
-            return t("현재 포켓몬의 경험치를 \(xp) 올려줘요.",
-                     "Raises your Pokémon's EXP by \(xp).",
-                     "ポケモンの経験値を\(xp)上げます。",
-                     "Aumenta la experiencia de tu Pokémon en \(xp).",
-                     "Augmente l'EXP de ton Pokémon de \(xp).",
-                     "Aumenta a experiência do seu Pokémon em \(xp).",
-                     "Gibt deinem aktuellen Pokémon \(xp) EP.")
+            return t("선택한 포켓몬의 레벨을 1 올려줘요. EV는 오르지 않아요.",
+                     "Raises the selected Pokémon by 1 level. It does not add EVs.",
+                     "選択したポケモンのレベルを1上げます。努力値は増えません。",
+                     "Sube 1 nivel al Pokémon seleccionado. No añade EVs.",
+                     "Augmente le niveau du Pokémon sélectionné de 1. Aucun EV n'est ajouté.",
+                     "Aumenta o nível do Pokémon selecionado em 1. Não adiciona EVs.",
+                     "Erhöht das Level des ausgewählten Pokémon um 1. Es gibt keine EVs.")
         case .mint:
             return t("현재 포켓몬의 성격을 랜덤으로 바꿔줘요.",
                      "Randomly changes your Pokémon's nature.",

@@ -12,6 +12,7 @@ final class CompanionStore {
     private(set) var currentLine: EvoLine?
     private(set) var representativeSubject = RepresentativeSubject(speciesID: nil, isShiny: false)
     private(set) var isHatching = false
+    private(set) var persistenceError: String?
     private var isRevealingDitto = false   // 메타몽 리빌 비동기 중복 방지(isHatching 자매)
     private(set) var justEvolvedTo: String?     // 이름(연출/문구)
     private(set) var justGraduated: String?
@@ -44,6 +45,9 @@ final class CompanionStore {
     private let dittoDisguiseRollingEnabled: Bool
     /// 세션 내 활성 개체 교체 감지용. await 뒤 이전 개체의 결과가 새 개체를 덮지 않게 한다.
     private var activeGeneration = 0
+    /// Bound catch-up work for unusually large imported/accumulated token banks.
+    /// Unprocessed tokens remain in the egg and resume on the next update.
+    private var remainingHatchesThisUpdate = 4
 
     init(provider: any PokeProviding = PokeAPIClient.shared,
          clock: @escaping () -> Date = Date.init,
@@ -70,7 +74,167 @@ final class CompanionStore {
     // MARK: 파생값 (UI)
 
     var language: AppLanguage { state.language }
+    // Trading supplies ownership exclusions before usage is credited. Local saves remain
+    // the authority for locally raised Pokémon; traded-away individuals cannot train.
+    private(set) var trainingExcludedIDs: Set<String> = []
+    private var receivedTrainingIDs: Set<String> = []
+    func setTrainingExcludedIDs(_ ids: Set<String>) { trainingExcludedIDs = ids }
+    var trainingMode: TrainingMode { state.trainingMode }
+    var trainingFocus: PokemonStat { state.trainingFocus }
+    var trainingTargetID: String? { trainingPokemon?.id }
+    var trainingCandidates: [DexEntry] {
+        let local = dexEntries.filter { !$0.isReleased && !trainingExcludedIDs.contains($0.id) }
+        let received = state.receivedTraining.filter { receivedTrainingIDs.contains($0.creatureID) && !trainingLockedIDs.contains($0.creatureID) }.map {
+            DexEntry(id: $0.creatureID, baseID: $0.baseID, finalID: $0.speciesID,
+                     chainOrder: $0.chainOrder, rarity: $0.rarity, caughtAt: $0.caughtAt,
+                     isShiny: $0.isShiny, nature: $0.nature,
+                     names: [$0.speciesID: ["en": $0.displayName]], progression: $0.progression)
+        }
+        return local.filter { !trainingLockedIDs.contains($0.id) } + received
+    }
+    private var explicitTrainingLockedIDs: Set<String> = []
+    @ObservationIgnored var trainingLockProvider: (() -> Set<String>)?
+    private var trainingLockedIDs: Set<String> { explicitTrainingLockedIDs.union(trainingLockProvider?() ?? []) }
+    func setTrainingLockedIDs(_ ids: Set<String>) { explicitTrainingLockedIDs = ids }
+
+    /// Reconcile progress only; ownership/provenance stay with the trading ledger.
+    func syncTrainingOwnership(held: [TradePokemon], received: [TradePokemon], transferredIDs: Set<String>) {
+        let receivedIDs = Set(received.map(\.creatureID))
+        receivedTrainingIDs = Set(held.map(\.creatureID)).intersection(receivedIDs)
+        trainingExcludedIDs = transferredIDs.union(receivedIDs)
+        for incoming in held where receivedTrainingIDs.contains(incoming.creatureID) {
+            if let index = state.receivedTraining.firstIndex(where: { $0.creatureID == incoming.creatureID }) {
+                var updated = incoming
+                updated.progression = PokemonProgression.preservingProgress(existing: state.receivedTraining[index].progression, incoming: incoming.progression)
+                state.receivedTraining[index] = updated
+            } else {
+                state.receivedTraining.append(incoming)
+            }
+        }
+        // A sidecar may be newer than an imported local save. Never display/train
+        // a lower local value and then silently discard it at the next trade.
+        for pokemon in held where !receivedIDs.contains(pokemon.creatureID) {
+            if let index = state.dex.firstIndex(where: { $0.id == pokemon.creatureID }) {
+                state.dex[index].progression = PokemonProgression.preservingProgress(existing: state.dex[index].progression, incoming: pokemon.progression)
+            }
+        }
+        save()
+    }
+    var trainingProgressionOverrides: [String: PokemonProgression] {
+        Dictionary(trainingCandidates.map { ($0.id, $0.progression) }, uniquingKeysWith: { _, latest in latest })
+    }
+    func trainedVersion(_ pokemon: TradePokemon) -> TradePokemon {
+        guard let progression = trainingProgressionOverrides[pokemon.creatureID] else { return pokemon }
+        var result = pokemon
+        result.progression = PokemonProgression.preservingProgress(existing: pokemon.progression, incoming: progression)
+        return result
+    }
+    var trainingPokemon: DexEntry? {
+        let candidates = trainingCandidates
+        // An explicitly selected individual becoming unavailable must not silently
+        // assign permanent EVs to a different Pokémon.
+        if let id = state.trainingTargetID { return candidates.first(where: { $0.id == id }) }
+        return candidates.first(where: isActiveDexEntry) ?? candidates.first
+    }
+    func setTrainingMode(_ mode: TrainingMode) {
+        if mode != .catching, state.trainingTargetID == nil { state.trainingTargetID = trainingPokemon?.id }
+        state.trainingMode = mode
+        save()
+    }
+    func setTrainingFocus(_ focus: PokemonStat) { state.trainingFocus = focus; save() }
+    func setTrainingTarget(_ id: String?) {
+        guard id == nil || trainingCandidates.contains(where: { $0.id == id }) else { return }
+        state.trainingTargetID = id
+        save()
+    }
+
+    /// One usage delta, one allocation. No target means all tokens catch instead of disappearing.
+    func routeGameplayTokens(_ delta: Int) {
+        let target = trainingPokemon
+        let mode: TrainingMode = target == nil ? .catching : state.trainingMode
+        if mode != .catching, state.trainingTargetID == nil { state.trainingTargetID = target?.id }
+        let allocation = mode.allocate(tokens: max(0, delta), remainder: &state.splitRemainder)
+        if let target, allocation.training > 0 {
+            mutateProgression(id: target.id) { $0.gainTraining(tokens: allocation.training, focus: state.trainingFocus) }
+        }
+        if state.active == nil { state.eggUsage += allocation.catching }
+        else { applyUsage(allocation.catching) }
+        save()
+    }
+
+    private func mutateProgression(id: String, _ change: (inout PokemonProgression) -> Void) {
+        if receivedTrainingIDs.contains(id), let index = state.receivedTraining.firstIndex(where: { $0.creatureID == id }) {
+            var progression = state.receivedTraining[index].progression
+            change(&progression)
+            state.receivedTraining[index].progression = progression
+        } else if state.active?.id == id {
+            var progression = state.active!.progression
+            change(&progression)
+            state.active!.progression = progression
+        } else if let index = state.dex.firstIndex(where: { $0.id == id && !$0.isReleased }),
+                  !trainingExcludedIDs.contains(id) {
+            var progression = state.dex[index].progression
+            change(&progression)
+            state.dex[index].progression = progression
+        }
+    }
+
+    var canUseTrainingCandy: Bool { rareCandyCount > 0 && (trainingPokemon?.progression.level ?? 100) < 100 }
+    @discardableResult
+    func useTrainingCandy() -> Bool {
+        guard canUseTrainingCandy, let target = trainingPokemon else { return false }
+        let before = state
+        mutateProgression(id: target.id) { _ = $0.useRareCandy() }
+        state.inventory[ItemKind.rareCandy.rawValue] = rareCandyCount - 1
+        return persistMutation(from: before)
+    }
     var hatchGenerations: Set<Int> { state.hatchGenerations }
+
+    var queuedBall: CatchingBall? { state.queuedBall }
+    var eggBall: CatchingBall? { state.eggBall }
+    var eggHatchThreshold: Int { state.eggBall?.hatchThreshold(base: PokemonBalance.eggHatchThreshold) ?? PokemonBalance.eggHatchThreshold }
+    func ballCount(_ ball: CatchingBall) -> Int { max(0, state.ballInventory[ball.rawValue] ?? 0) }
+    @discardableResult
+    func buyBall(_ ball: CatchingBall) -> Bool {
+        guard availableTokens >= ball.price, ballCount(ball) < 1_000_000 else { return false }
+        let before = state
+        state.spentTokens += ball.price
+        state.ballInventory[ball.rawValue] = ballCount(ball) + 1
+        return persistMutation(from: before)
+    }
+    /// Reserve nothing until a cycle starts. Replacing a queued choice costs nothing.
+    /// An untouched egg can equip now, invalidating prefetch before the new effect rolls.
+    @discardableResult
+    func queueBall(_ ball: CatchingBall) -> Bool {
+        guard ballCount(ball) > 0 else { return false }
+        let before = state
+        if state.active == nil, state.eggUsage == 0, state.eggBall == nil, !isHatching {
+            state.ballInventory[ball.rawValue] = ballCount(ball) - 1
+            state.eggBall = ball
+            state.queuedBall = nil
+            state.pendingHatchID = nil
+            prefetchedLineID = nil
+            activeGeneration += 1
+        } else {
+            state.queuedBall = ball
+        }
+        return persistMutation(from: before)
+    }
+    func clearQueuedBall() {
+        let before = state
+        state.queuedBall = nil
+        _ = persistMutation(from: before)
+    }
+    private func equipQueuedBallForNewEgg() {
+        state.eggBall = nil
+        state.pendingHatchID = nil
+        prefetchedLineID = nil
+        if let ball = state.queuedBall, ballCount(ball) > 0 {
+            state.ballInventory[ball.rawValue] = ballCount(ball) - 1
+            state.eggBall = ball
+        }
+        state.queuedBall = nil
+    }
 
     func setHatchGenerations(_ selected: Set<Int>) {
         let valid = selected.intersection(HatchGeneration.all)
@@ -134,8 +298,8 @@ final class CompanionStore {
     // 알 인큐베이션 (active 없을 때)
     var isEgg: Bool { state.active == nil }
     var eggStarted: Bool { state.eggUsage > 0 }
-    var eggProgress: Double { min(1, max(0, Double(state.eggUsage) / Double(PokemonBalance.eggHatchThreshold))) }
-    var eggTokensToHatch: Int { max(0, PokemonBalance.eggHatchThreshold - state.eggUsage) }
+    var eggProgress: Double { min(1, max(0, Double(state.eggUsage) / Double(eggHatchThreshold))) }
+    var eggTokensToHatch: Int { max(0, eggHatchThreshold - state.eggUsage) }
 
     var displayName: String {
         guard let a = state.active, let line = currentLine else { return "Token Egg" }
@@ -195,7 +359,7 @@ final class CompanionStore {
     private var activeDexEntry: DexEntry? {
         guard let active = state.active else { return nil }
         return DexEntry(
-            id: "active-\(active.baseID)-\(active.currentID)",
+            id: active.id,
             baseID: active.baseID,
             finalID: active.currentID,
             chainOrder: active.pathIDs,
@@ -206,7 +370,8 @@ final class CompanionStore {
             names: currentLine.map { line in
                 Dictionary(uniqueKeysWithValues:
                     active.pathIDs.compactMap { id in line.names[id].map { (id, $0) } })
-            }
+            },
+            progression: active.progression
         )
     }
 
@@ -235,7 +400,7 @@ final class CompanionStore {
                 Dictionary(uniqueKeysWithValues:
                     chain.compactMap { id in line.names[id].map { (id, $0) } })
             },
-            releasedAt: now)
+            releasedAt: now, progression: a.progression)
     }
 
     var dexEntries: [DexEntry] {
@@ -365,6 +530,7 @@ final class CompanionStore {
 
     func update(todayTokensByProvider: [String: Int], todayDate: String, monthTotal: Int,
                 burnTier: BurnTier, limitWarning: Bool, hasUsageData: Bool) {
+        remainingHatchesThisUpdate = 4
         let todayTokens = todayTokensByProvider.values.reduce(0, +)
         // `hasUsageData`는 표시용 snapshot 존재 여부이고, 이 map은 오늘 날짜가 확인된
         // provider 데이터만 담는다. stale snapshot이나 today == nil carrier만 있는 refresh는
@@ -419,11 +585,7 @@ final class CompanionStore {
                     let delta = todayTokensByProvider.values.reduce(0, +)
                     if delta > 0 {
                         state.usedSinceInstall += delta
-                        if state.active == nil {
-                            state.eggUsage += delta
-                        } else {
-                            applyUsage(delta)
-                        }
+                        routeGameplayTokens(delta)
                     }
                 } else {
                     var ledger = state.claimedTodayTokensByProvider ?? [:]
@@ -449,11 +611,7 @@ final class CompanionStore {
                     state.claimedTodayTokensByProvider = ledger
                     if delta > 0 {
                         state.usedSinceInstall += delta
-                        if state.active == nil {
-                            state.eggUsage += delta   // 알 인큐베이션 누적
-                        } else {
-                            applyUsage(delta)
-                        }
+                        routeGameplayTokens(delta)
                     }
                 }
             }
@@ -470,7 +628,7 @@ final class CompanionStore {
             Task { await ensureEggPrefetch() }
         }
         // 알이 부화 임계에 도달하면 부화
-        if state.active == nil, state.eggUsage >= PokemonBalance.eggHatchThreshold, !isHatching {
+        if state.active == nil, state.eggUsage >= eggHatchThreshold, !isHatching {
             Task { await hatchIfNeeded() }
         }
         // active 인데 라인 미로딩(앱 재시작) → 로드
@@ -493,7 +651,13 @@ final class CompanionStore {
     /// 프로바이더별 ledger 는 이미 전진해 델타가 영구 유실된다. 진화 판정만 라인 로드 후로 미룬다.
     func applyUsage(_ delta: Int) {
         guard state.active != nil else { return }
-        state.active!.usedAtStage += delta
+        let tokens = max(0, delta)
+        let active = state.active!
+        let remaining = (active.stageIndex..<max(active.stageIndex + 1, active.totalForms)).reduce(0) {
+            $0 + PokemonBalance.phaseThreshold(rarity: active.rarity, totalForms: active.totalForms, stageIndex: $1)
+        } - active.usedAtStage
+        state.active!.progression.gainExperience(tokens: min(tokens, max(0, remaining)))
+        state.active!.usedAtStage += tokens
         guard let line = currentLine else { save(); return }
         var guardCount = 0
         while state.active != nil, guardCount < 50 {
@@ -606,13 +770,13 @@ final class CompanionStore {
         guard let a = state.active else { return }
         let finalID = a.currentID
         state.collectedFinals.insert("\(a.baseID):\(finalID)")
-        state.dex.append(DexEntry(baseID: a.baseID, finalID: finalID,
+        state.dex.append(DexEntry(id: a.id, baseID: a.baseID, finalID: finalID,
                                   chainOrder: a.pathIDs, rarity: a.rarity, caughtAt: clock(),
                                   isShiny: a.isShiny, nature: a.nature,
                                   names: currentLine.map { line in   // 체인 각 종의 다국어 이름 저장(표시 즉시)
                                       Dictionary(uniqueKeysWithValues:
                                           a.pathIDs.compactMap { id in line.names[id].map { (id, $0) } })
-                                  }))
+                                  }, progression: a.progression))
         let name = currentLine?.localizedName(finalID, state.language) ?? ""
         justGraduated = name
         notifyCompanionEvent(l.notifGraduateTitle, l.notifGraduateBody(name))
@@ -621,7 +785,8 @@ final class CompanionStore {
         state.reconcileRepresentativeSelection()   // 졸업 체인이 dex 로 옮겨져 선택은 정상적으로 유지된다
         activeGeneration += 1
         currentLine = nil
-        state.eggUsage = 0   // 새 알은 처음부터 인큐베이션
+        state.eggUsage = max(0, a.usedAtStage - PokemonBalance.phaseThreshold(rarity: a.rarity, totalForms: a.totalForms, stageIndex: a.stageIndex))
+        equipQueuedBallForNewEgg()
         // eggTier 는 손대지 않는다 — 여기 도달했다는 건 활성 포켓몬이 있었다는 뜻이라 보증은 이미 nil 이다
         // (부화가 소비, 디스크/불러오기는 sanitized 가 정규화). 소비 지점은 hatchCore 한 곳으로 유지한다.
         // "알을 받는 순간" 즉시 프리패칭 시작 — 다음 부화의 종·라인·스프라이트 예열.
@@ -643,26 +808,18 @@ final class CompanionStore {
         }
     }
 
-    /// 이상한 사탕 사용 가능 — 활성 포켓몬 + 라인 로딩 완료 + 재고>0.
-    /// 라인 미로딩(재시작 직후·오프라인)이면 비활성 — 사탕이 진화 없이 적립만 되는 것 방지.
-    var canUseRareCandy: Bool { hasActive && currentLine != nil && rareCandyCount > 0 }
+    /// Candy uses the selected trainee, including collected Pokémon, without network access.
+    var canUseRareCandy: Bool { canUseTrainingCandy }
 
     /// 사탕 사용 결과 — UI 피드백 분기용.
     enum CandyUseResult: Equatable { case evolved, graduated, progressed, unavailable }
 
-    /// 이상한 사탕 1개 사용 — 현재 포켓몬에 +RareCandy.xp. applyUsage 재사용으로 이월·진화·졸업·연출 자동.
-    /// 사탕 XP 는 usedAtStage(진화 진행)에만 반영 — usedSinceInstall/오늘 토큰(실사용 통계)엔 안 잡힌다.
+    /// Exactly one level, no EVs, no evolution-meter or wallet changes.
     @discardableResult
     func useRareCandy() -> CandyUseResult {
-        guard canUseRareCandy else { return .unavailable }
-        state.inventory[ItemKind.rareCandy.rawValue] = rareCandyCount - 1
-        let beforeStage = state.active?.stageIndex ?? 0
-        // 진화 안 될 때(부분 진행)도 즉시 "+XP" 피드백 — CompanionHeader 가 연출과 별개로 표시.
-        candyFeedbackAmount = RareCandy.xp
+        guard let before = trainingPokemon?.progression.totalExperience, useTrainingCandy() else { return .unavailable }
+        candyFeedbackAmount = (trainingPokemon?.progression.totalExperience ?? before) - before
         candyFeedbackSeq += 1
-        applyUsage(RareCandy.xp)   // 내부에서 save() 수행(인벤토리 감소 포함 영속)
-        if state.active == nil { return .graduated }
-        if state.active!.stageIndex > beforeStage { return .evolved }
         return .progressed
     }
 
@@ -800,6 +957,7 @@ final class CompanionStore {
         activeGeneration += 1
         currentLine = nil
         state.eggUsage = 0            // 새 알은 처음부터 인큐베이션(재부화에 5M 필요)
+        equipQueuedBallForNewEgg()
         state.eggTier = tier          // 등급 보증(nil = 보증 없음)
         state.pendingHatchID = nil    // 새 보증으로 처음부터 롤(활성 포켓몬이 있는 동안엔 원래 비어 있다)
         prefetchedLineID = nil
@@ -879,10 +1037,12 @@ final class CompanionStore {
     // MARK: 부화
 
     func hatchIfNeeded() async {
-        guard state.active == nil, !isHatching, state.eggUsage >= PokemonBalance.eggHatchThreshold else { return }
+        guard state.active == nil, !isHatching, state.eggUsage >= eggHatchThreshold else { return }
         // 프리패치가 "종 롤 중"(pending 미확정)일 때만 대기 — 이중 rng 소비 방지.
         // pending 확정 후의 예열(라인/스프라이트)과는 동시 진행해도 안전하다.
         guard state.pendingHatchID != nil || !prefetchInFlight else { return }
+        guard remainingHatchesThisUpdate > 0 else { return }
+        remainingHatchesThisUpdate -= 1
         // isHatching 을 롤~부화 전체에 defer 로 잠근다. 과거엔 chooseBase 후 isHatching 을 잠깐
         // 내렸다가(hatch 자체 가드 통과용) hatch 를 호출해, 그 await 창에서 다른 update 틱이
         // 두 번째 종을 롤하는 경합이 있었다. hatchCore 는 isHatching 을 재검사하지 않으므로
@@ -907,7 +1067,8 @@ final class CompanionStore {
             kickLineLoadIfNeeded()
             return
         }
-        state.pendingHatchID = nil
+        state.pendingHatchID = base
+        save()
         await hatchCore(baseID: base)
     }
 
@@ -947,6 +1108,13 @@ final class CompanionStore {
             state.pendingHatchID = id
             save()
         }
+        // A threshold-crossing update may have attempted hatching while this
+        // pre-roll was suspended. Complete that same update once its ID is ready;
+        // otherwise a fully incubated egg waits for a second usage refresh.
+        if state.eggUsage >= eggHatchThreshold {
+            await hatchIfNeeded()
+            return
+        }
         guard let id = state.pendingHatchID, prefetchedLineID != id else { return }
         guard let line = try? await provider.line(baseSpeciesID: id) else { return }   // 라인 예열
         // 스프라이트 예열 — 부화 직후 보일 것들: base 정적+애니메이션, shiny 롤(1/64) 대비 shiny 애니메이션.
@@ -956,6 +1124,7 @@ final class CompanionStore {
             _ = await SpriteStore.shared.data(speciesID: line.baseID, animated: true, shiny: false)
             _ = await SpriteStore.shared.data(speciesID: line.baseID, animated: true, shiny: true)
         }
+        guard activeGeneration == generation, state.active == nil, state.pendingHatchID == id else { return }
         prefetchedLineID = id
     }
 
@@ -1006,8 +1175,11 @@ final class CompanionStore {
             return
         }
         currentLine = line
+        state.pendingHatchID = nil
         // 부화 임계 초과분은 부화체 성장에 이월(낭비 없음).
-        let overflow = max(0, state.eggUsage - PokemonBalance.eggHatchThreshold)
+        let overflow = max(0, state.eggUsage - eggHatchThreshold)
+        let hatchBall = state.eggBall
+        state.eggBall = nil
         state.eggUsage = 0
         state.eggTier = nil   // 보증은 이 부화로 소비된다(다음 알은 다시 무보증)
         // 개체 롤 — shiny(1/64)·성격(25종)은 부화 순간 확정, 진화해도 유지.
@@ -1028,6 +1200,7 @@ final class CompanionStore {
         state.active = MonState(baseID: line.baseID, pathIDs: [line.baseID], plannedPathIDs: evolutionPlan,
                                 stageIndex: 0, usedAtStage: 0, rarity: line.rarity, totalForms: evolutionPlan.count,
                                 isShiny: isShiny, nature: nature, dittoDisguise: dittoDisguise)
+        if let hatchBall { state.active!.progression = PokemonProgression(totalExperience: 125 + hatchBall.startingExperienceBonus) }
         AppLog.write("hatch: base=\(line.baseID) rarity=\(line.rarity) shiny=\(isShiny) forms=\(evolutionPlan.count) ditto=\(dittoDisguise != nil)")
         let name = line.localizedName(line.baseID, state.language)
         notifyCompanionEvent(showShiny ? l.notifShinyHatchTitle : l.notifHatchTitle,
@@ -1110,6 +1283,7 @@ final class CompanionStore {
     /// 인덱스 취득 실패(오프라인 + 캐시 없음) 시 nil → 알 유지, 다음 갱신 틱 재시도.
     private func chooseBase() async -> Int? {
         let tier = state.eggTier
+        let ball = state.eggBall
         if let full = try? await provider.baseSpeciesIndex(), !full.isEmpty {
             // 등급 보증 알은 후보를 먼저 좁힌다 — capture_rate 상한이 곧 등급 하한이므로
             // (Rarity.captureRateCeiling) 전설도 자연히 포함된다("희귀 이상"에 전설이 들어가는 게 정상).
@@ -1121,8 +1295,9 @@ final class CompanionStore {
                 return nil
             }
             let weights = index.map { e in
-                state.collectedFinals.contains(where: { $0.hasPrefix("\(e.id):") })
+                let baseWeight = state.collectedFinals.contains(where: { $0.hasPrefix("\(e.id):") })
                     ? max(1, e.captureRate / 2) : max(1, e.captureRate)
+                return baseWeight * (ball?.weightMultiplier(captureRate: e.captureRate) ?? 1)
             }
             let total = weights.reduce(0, +)
             var r = Int(rng.next() % UInt64(total))
@@ -1142,6 +1317,7 @@ final class CompanionStore {
     /// line() 이 실제 capture_rate 로 계산하므로 결과 개체의 등급은 정확하다. 인덱스 복구 시 가중 선택 재개.
     private func chooseBaseViaREST() async -> Int? {
         let tier = state.eggTier
+        let ball = state.eggBall
         let ids = HatchGeneration.candidates(selected: state.hatchGenerations)
         guard !ids.isEmpty else { return nil }
         for attempt in 1...16 {
@@ -1151,6 +1327,12 @@ final class CompanionStore {
                     // 등급 보증은 가중 경로와 **같은 기준**으로 여기서도 걸러야 한다 — 이 폴백만 빠지면
                     // GraphQL 인덱스 장애 때 보증이 조용히 깨진다. 못 찾으면 알 유지(구매 소멸 금지).
                     if let tier, !tier.includes(captureRate: bs.captureRate) { continue }
+                    // Apply paid rarity bias in the fallback too. Rejection sampling
+                    // changes relative weights without promising an absolute catch chance.
+                    if let ball, ball.maximumWeightMultiplier > 1,
+                       Int(rng.next() % UInt64(ball.maximumWeightMultiplier)) >= ball.weightMultiplier(captureRate: bs.captureRate) {
+                        continue
+                    }
                     AppLog.write("hatch: REST fallback picked base \(id) (cap \(bs.captureRate), \(attempt) tries)")
                     return id
                 }
@@ -1265,9 +1447,26 @@ final class CompanionStore {
         // (디코드는 *성공*하므로 위의 .corrupt 복구도 발동하지 않는다). 여기서 걸면 자가 복구된다.
         state = SaveTransfer.sanitized(s)
     }
-    private func save() {
+    private func persistMutation(from before: CompanionState) -> Bool {
+        guard save() else {
+            state = before
+            refreshRepresentativeSubject()
+            return false
+        }
+        return true
+    }
+
+    @discardableResult
+    private func save() -> Bool {
         refreshRepresentativeSubject()
-        guard let data = try? JSONEncoder().encode(state) else { return }
-        try? data.write(to: fileURL, options: .atomic)   // 부분 쓰기 손상 방지(펫 상태)
+        do {
+            let data = try JSONEncoder().encode(state)
+            try data.write(to: fileURL, options: .atomic)
+            persistenceError = nil
+            return true
+        } catch {
+            persistenceError = "Could not save progress. Check disk space and folder permissions."
+            return false
+        }
     }
 }

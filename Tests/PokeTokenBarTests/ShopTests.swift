@@ -80,7 +80,7 @@ final class ShopTests: XCTestCase {
 
     /// 잔액 부족이면 no-op — 인벤토리·지출 원장 불변, false 반환.
     func testBuyInsufficientIsNoOp() {
-        let s = store(used: 400_000_000)
+        let s = store(used: RareCandy.price - 1)
         XCTAssertFalse(s.buyRareCandy())
         XCTAssertEqual(s.rareCandyCount, 0)
         XCTAssertEqual(s.state.spentTokens, 0)
@@ -88,13 +88,14 @@ final class ShopTests: XCTestCase {
 
     /// 여러 번 구매하면 잔액이 바닥날 때까지만 성공(가드가 매번 재평가).
     func testMultipleBuysUntilBroke() {
-        let s = store(used: 1_200_000_000)          // 2개까지 가능(1B), 3번째 실패(잔액 200M)
+        let initial = 3 * RareCandy.price - 1       // 2개까지 가능, 3번째는 1토큰 부족
+        let s = store(used: initial)
         XCTAssertTrue(s.buyRareCandy())
         XCTAssertTrue(s.buyRareCandy())
         XCTAssertFalse(s.buyRareCandy())
         XCTAssertEqual(s.rareCandyCount, 2)
         XCTAssertEqual(s.state.spentTokens, 2 * RareCandy.price)
-        XCTAssertEqual(s.availableTokens, 200_000_000)
+        XCTAssertEqual(s.availableTokens, initial - 2 * RareCandy.price)
     }
 
     /// 구매는 이미 가진 사탕에 합산된다(무료 지급분과 같은 인벤토리).
@@ -123,7 +124,7 @@ final class ShopTests: XCTestCase {
 
     // MARK: 정렬 (가격 저렴한 순 + 구매 완료 보유형 맨 아래)
 
-    /// 상점 목록은 가격 오름차순(민트 100M < 사탕 500M < 이로치 부적 3B).
+    /// 상점 목록은 가격 오름차순(민트 < 사탕 < 이로치 부적).
     func testItemsSortedByPriceAscending() {
         let items = store(used: 0).purchasableItems
         XCTAssertEqual(items, [.mint, .rareCandy, .shinyCharm])
@@ -146,8 +147,8 @@ final class ShopTests: XCTestCase {
     // MARK: shopEntries (판매 아이템 + 알 3종을 하나의 가격 오름차순 목록으로 병합)
 
     /// 활성 포켓몬이 있으면 알 3종이 각자의 가격 위치에 끼워져 전체가 가격 오름차순.
-    /// (회귀: 알이 ForEach 밖에서 무조건 맨 아래로 append 돼 3B 부적보다 아래에 놓이던 표시.)
-    /// 등급 알을 인접 그룹으로 묶지 **않는** 것이 의도다 — 그러면 4B 희귀 알이 3B 부적 위로 올라가
+    /// (회귀: 알이 ForEach 밖에서 무조건 맨 아래로 append 돼 부적보다 아래에 놓이던 표시.)
+    /// 등급 알을 인접 그룹으로 묶지 **않는** 것이 의도다 — 희귀 알이 부적 위로 올라가
     /// 위 회귀를 부분적으로 되살린다. 티어 관계는 카드의 등급 배지로 읽힌다.
     func testShopEntriesInterleavesFreshEggByPrice() {
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("shop-entries-\(UUID().uuidString).json")
@@ -159,12 +160,12 @@ final class ShopTests: XCTestCase {
         let s = CompanionStore(provider: ShopNoProvider(), clock: { self.now }, fileURL: url, rng: SeededRNG(seed: 1))
         XCTAssertTrue(s.hasActive)
         XCTAssertEqual(s.shopEntries,
-                       [.item(.mint),        // 100M
-                        .item(.rareCandy),   // 500M
-                        .egg(nil),           // 1B
-                        .egg(.uncommon),     // 2.5B
-                        .item(.shinyCharm),  // 3B
-                        .egg(.rare)])        // 4B
+                       [.item(.mint),        // 2M
+                        .item(.rareCandy),   // 5M
+                        .egg(nil),           // 10M
+                        .egg(.uncommon),     // 25M
+                        .egg(.rare),         // 40M
+                        .item(.shinyCharm)]) // 3B
         let prices = s.shopEntries.map(\.price)
         XCTAssertEqual(prices, prices.sorted(), "가격 상수가 바뀌어도 오름차순 불변식 유지")
     }
@@ -176,12 +177,12 @@ final class ShopTests: XCTestCase {
         let s = store(used: 5_000_000_000)   // active 없음, 잔액은 전 티어 가격 이상
         XCTAssertFalse(s.hasActive)
         XCTAssertEqual(s.shopEntries,
-                       [.item(.mint),        // 100M
-                        .item(.rareCandy),   // 500M
-                        .egg(nil),           // 1B
-                        .egg(.uncommon),     // 2.5B
-                        .item(.shinyCharm),  // 3B
-                        .egg(.rare)])        // 4B
+                       [.item(.mint),        // 2M
+                        .item(.rareCandy),   // 5M
+                        .egg(nil),           // 10M
+                        .egg(.uncommon),     // 25M
+                        .egg(.rare),         // 40M
+                        .item(.shinyCharm)]) // 3B
         for tier in FreshEgg.shopTiers {
             XCTAssertTrue(s.shopEntries.contains(.egg(tier)), "알 상태에서도 \(tier?.rawValue ?? "기본") 알은 노출 유지")
             XCTAssertFalse(s.canBuyEgg(tier), "노출은 되지만 \(tier?.rawValue ?? "기본") 알 구매는 hasActive 게이트로 차단")

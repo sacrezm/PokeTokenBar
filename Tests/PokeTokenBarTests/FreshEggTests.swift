@@ -27,7 +27,7 @@ final class FreshEggTests: XCTestCase {
         return CompanionStore(provider: FreshEggNoProvider(), clock: { self.now }, fileURL: url, rng: SeededRNG(seed: 7))
     }
 
-    func testPriceIsOneBillion() { XCTAssertEqual(FreshEgg.price, 1_000_000_000) }
+    func testPriceIsTenMillion() { XCTAssertEqual(FreshEgg.price, 10_000_000) }
 
     /// [핵심] 리롤 = 놓아줌: active 사라지고 새 알(eggUsage 0).
     /// 도감에는 **놓아줌 기록으로 남고**, 확률 가중(collectedFinals)은 여전히 불변이다 —
@@ -55,7 +55,7 @@ final class FreshEggTests: XCTestCase {
                        "합성 엔트리는 사라지고 영구 기록이 그 자리를 대신한다")
 
         XCTAssertEqual(s.state.collectedFinals, collectedBefore, "확률 가중(collectedFinals) 불변")
-        XCTAssertEqual(s.state.spentTokens, FreshEgg.price, "지갑에서 1B 차감")
+        XCTAssertEqual(s.state.spentTokens, FreshEgg.price, "지갑에서 10M 차감")
         XCTAssertEqual(s.availableTokens, 5_000_000_000 - FreshEgg.price)
     }
 
@@ -93,7 +93,7 @@ final class FreshEggTests: XCTestCase {
 
     /// 잔액이 가격 미만이면 불가 — 활성 유지.
     func testCannotRerollWithoutFunds() {
-        let s = store(used: 500_000_000)   // 1B 미만
+        let s = store(used: FreshEgg.price - 1)   // 가격 미만
         XCTAssertFalse(s.canBuyFreshEgg)
         XCTAssertFalse(s.buyFreshEgg())
         XCTAssertNotNil(s.state.active, "활성 유지")

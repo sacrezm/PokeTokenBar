@@ -71,10 +71,10 @@ private struct ItemCard: View {
         .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 
-    /// 이 아이템을 지금 쓸 수 있나 (kind 별 — 사탕은 라인 로딩 필요, 민트는 활성 포켓몬만).
+    /// 이 아이템을 지금 쓸 수 있나 (kind 별 — 사탕은 선택된 훈련 대상이 필요, 민트는 활성 포켓몬만).
     private var canUse: Bool {
         switch kind {
-        case .rareCandy: return store.canUseRareCandy
+        case .rareCandy: return store.canUseTrainingCandy
         case .mint:      return store.canUseMint
         case .shinyCharm: return false   // 보유형 — 사용 개념 없음(상시 효과)
         }
@@ -82,14 +82,14 @@ private struct ItemCard: View {
     /// 사용 컨트롤 효과 힌트 ("+XP" / "성격 랜덤 변경").
     private func effectHint(_ l: L) -> String {
         switch kind {
-        case .rareCandy: return "+\(TokenFormatter.compact(RareCandy.xp)) XP"
+        case .rareCandy: return "+1 level · no EVs"
         case .mint:      return l.mintEffectHint
         case .shinyCharm: return l.shinyCharmEffectHint
         }
     }
     private func performUse() {
         switch kind {
-        case .rareCandy: _ = store.useRareCandy()
+        case .rareCandy: _ = store.useTrainingCandy()
         case .mint:      _ = store.useMint()
         case .shinyCharm: break   // 보유형 — 사용 동작 없음
         }
@@ -131,10 +131,14 @@ private struct ItemCard: View {
         }
     }
 
-    /// 사용 → 항상 Home 탭으로 전환(진화/졸업 연출·"+XP"·성격 변경 토스트는 Home 의 CompanionHeader 에서 재생).
+    /// 사용 후 해당 피드백이 보이는 탭으로 전환한다. 진화/졸업 연출·"+XP"·성격 변경 토스트는
+    /// Home 의 CompanionHeader 에서 재생된다.
     private func useNow() {
         confirming = false
         performUse()
-        nav.tab = .home
+        switch kind {
+        case .rareCandy: nav.tab = .train
+        case .mint, .shinyCharm: nav.tab = .home
+        }
     }
 }

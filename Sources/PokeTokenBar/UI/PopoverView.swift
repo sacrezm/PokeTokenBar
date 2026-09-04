@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-enum PopoverTab { case home, shop, bag, collection, trade }
+enum PopoverTab { case home, shop, bag, collection, train, trade }
 enum CollectionTab { case owned, pokedex, catchLog }
 
 /// 팝오버 치수의 단일 소스. 자식이 쓸 수 있는 폭을 알아야 할 때 이 값을 쓴다 — 넘치는 자식이
@@ -109,6 +109,7 @@ struct PopoverView: View {
                 Text(l.shop).tag(PopoverTab.shop)
                 Text(l.bag).tag(PopoverTab.bag)
                 Text(l.collection).tag(PopoverTab.collection)
+                Text("Train").tag(PopoverTab.train)
                 Text("Trade").tag(PopoverTab.trade)
             }
             .pickerStyle(.segmented)
@@ -121,10 +122,13 @@ struct PopoverView: View {
             }
             if nav.tab == .trade {
                 TradingView().environment(trading).environment(companion)
+            } else if nav.tab == .train {
+                TrainingView(store: companion)
             } else if nav.tab == .collection {
                 CollectionView(store: companion, navigation: nav,
-                               received: trading.receivedInventory,
-                               held: trading.heldInventory, transferredIDs: trading.transferredIDs)
+                               received: trading.receivedInventory.map(companion.trainedVersion),
+                               held: trading.heldInventory.map(companion.trainedVersion),
+                               transferredIDs: trading.transferredIDs)
             } else if nav.tab == .bag {
                 BagView(store: companion, nav: nav)
             } else if nav.tab == .shop {

@@ -101,11 +101,13 @@ final class StoreTerminationTests: XCTestCase {
         let s = CompanionStore(provider: StubProvider(value: pline(base: 1, rarity: .common)),
                                clock: { pNow }, fileURL: tmpURL(), rng: SeededRNG(seed: 1))
         await s.hatch(baseID: 1)
-        s.applyUsage(Int(PokemonBalance.graduationTotal(.common)) * 10)   // 졸업 총량의 10배
+        let graduation = Int(PokemonBalance.graduationTotal(.common))
+        let amount = graduation * 10
+        s.applyUsage(amount)   // 졸업 총량의 10배
         XCTAssertNil(s.state.active)            // 졸업 완료
         XCTAssertEqual(s.dexEntries.count, 1)   // 정확히 1회
         XCTAssertEqual(s.dexEntries[0].chainOrder, [1, 2, 3])
-        XCTAssertEqual(s.state.eggUsage, 0)     // 새 알 인큐베이션 리셋
+        XCTAssertEqual(s.state.eggUsage, amount - graduation, "남은 델타는 새 알에 이월")
     }
 
     func testRepeatedGraduationGrowsDexLinearly() async {

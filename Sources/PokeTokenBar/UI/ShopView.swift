@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// 상점 — 사용한 토큰(재화 = usedSinceInstall − spentTokens)으로 아이템 구매(이상한 사탕·민트).
@@ -14,6 +15,10 @@ struct ShopView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 10) {
                 walletHeader(l)
+                if let error = store.persistenceError {
+                    Text(error).font(.caption).foregroundStyle(.red).fixedSize(horizontal: false, vertical: true)
+                }
+                ballSection
                 // shopEntries = 판매 아이템 + 알 3종(보증 없음·고급 이상·희귀 이상)을 가격 오름차순으로
                 // 병합한 단일 목록. 알은 항상 포함되고(즉시 액션이라 ItemKind 가 아님), 알 상태에선
                 // EggCard 가 구매만 비활성으로 보여준다.
@@ -43,6 +48,201 @@ struct ShopView: View {
         .padding(10)
         .background(Color.secondary.opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+
+    /// Catching balls are a separate section because they modify the next egg
+    /// cycle, rather than the reusable item inventory above.
+    private var ballSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Divider()
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text("Catching balls")
+                    .font(.callout.weight(.semibold))
+                Spacer(minLength: 0)
+                if let current = store.eggBall {
+                    Text("Egg: \(current.displayName)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+            Text("Optional one-cycle bonuses. Equip an untouched current egg now, or reserve a ball for the next egg.")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            if let queued = store.queuedBall {
+                HStack(spacing: 6) {
+                    Image(systemName: "arrow.right.circle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                    Text("Next egg: \(queued.displayName)")
+                        .font(.caption2.weight(.semibold))
+                    Spacer(minLength: 0)
+                    Button("Clear queue") { store.clearQueuedBall() }
+                        .buttonStyle(.borderless)
+                        .controlSize(.small)
+                }
+            }
+
+            ForEach(CatchingBall.allCases, id: \.rawValue) { ball in
+                BallCard(store: store, ball: ball)
+            }
+        }
+    }
+}
+
+/// One optional catching-ball purchase and equip row.
+@MainActor
+private struct BallCard: View {
+    let store: CompanionStore
+    let ball: CatchingBall
+    @State private var confirming = false
+
+    private var owned: Int { store.ballCount(ball) }
+    private var isOnCurrentEgg: Bool { store.eggBall?.rawValue == ball.rawValue }
+    private var isQueued: Bool { store.queuedBall?.rawValue == ball.rawValue }
+
+    var body: some View {
+        let l = store.l
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(alignment: .top, spacing: 10) {
+                BallIconView(ball: ball, size: 30)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(ball.displayName)
+                            .font(.callout.weight(.semibold))
+                        if owned > 0 {
+                            Text("×\(owned)")
+                                .font(.caption2.weight(.bold))
+                                .foregroundStyle(.secondary)
+                                .monospacedDigit()
+                        }
+                    }
+                    Text(ball.effectDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
+            }
+            buyControls(l)
+            equipControls
+        }
+        .padding(10)
+        .background(Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 10))
+    }
+
+    @ViewBuilder
+    private func buyControls(_ l: L) -> some View {
+        if confirming {
+            HStack(spacing: 8) {
+                Text("Buy \(ball.displayName)?")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+                Button(l.buy) { buyNow() }
+                    .buttonStyle(.borderedProminent)
+                    .controlSize(.small)
+                Button(l.cancel) { confirming = false }
+                    .buttonStyle(.borderless)
+                    .controlSize(.small)
+            }
+        } else {
+            HStack {
+                Text("\(l.shopPriceLabel) \(TokenFormatter.compact(ball.price))")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .monospacedDigit()
+                Spacer(minLength: 0)
+                if store.availableTokens >= ball.price {
+                    Button(l.buy) { confirming = true }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                } else {
+                    Text(l.notEnoughTokens)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                }
+            }
+        }
+    }
+
+    private var equipControls: some View {
+        HStack(spacing: 6) {
+            if isOnCurrentEgg {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.green)
+                Text("Equipped on current egg")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.green)
+                Spacer(minLength: 0)
+                if owned > 0 && !isQueued {
+                    Button("Queue next egg") { _ = store.queueBall(ball) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                }
+            } else if isQueued {
+                Image(systemName: "clock.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                Text("Queued for next egg")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.orange)
+            } else {
+                Spacer(minLength: 0)
+                Button(store.eggBall == nil && store.isEgg && !store.eggStarted
+                       ? "Equip current egg" : "Queue next egg") {
+                    _ = store.queueBall(ball)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .disabled(owned == 0)
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func buyNow() {
+        confirming = false
+        _ = store.buyBall(ball)
+    }
+}
+
+/// Runtime-loaded PokéAPI item art with the same fitting rules as ItemIconView.
+@MainActor
+private struct BallIconView: View {
+    let ball: CatchingBall
+    let size: CGFloat
+    @State private var image: NSImage?
+
+    init(ball: CatchingBall, size: CGFloat = 30) {
+        self.ball = ball
+        self.size = size
+        _image = State(initialValue: SpriteLoader.cachedItemImage(name: ball.spriteName))
+    }
+
+    var body: some View {
+        Group {
+            if let image {
+                let fit = SpriteFit.size(for: image.size, box: size)
+                Image(nsImage: image)
+                    .resizable()
+                    .interpolation(.none)
+                    .frame(width: fit.width, height: fit.height)
+                    .frame(width: size, height: size)
+            } else {
+                Text("⚪")
+                    .font(.system(size: size * 0.8))
+                    .frame(width: size, height: size)
+            }
+        }
+        .task(id: ball.spriteName) {
+            guard image == nil else { return }
+            image = await SpriteLoader.itemImage(name: ball.spriteName)
+        }
     }
 }
 

@@ -22,6 +22,19 @@
 
 ## About this fork
 
+### Local progression playtest
+
+This branch adds levels 5–100, XP, six capped EV stats, Catch / Train / Balanced
+modes, a faster collection cycle, and affordable optional catching balls. Training
+supports locally raised and currently owned traded Pokémon. Battles and exploration
+are intentionally not included yet. See [the gameplay rules](docs/reference/pokemon-progression.md).
+
+Run `./scripts/preview-gameplay.sh` for the native sandbox with simulated-token
+buttons. It uses a separate app identity and save folder, never replaces the
+installed app, and does not scan real usage or connect to the trading relay.
+
+### Trading fork
+
 This is an independently maintained fork of [chattymin/PokeTokenBar](https://github.com/chattymin/PokeTokenBar), adding **remote Pokémon trading**. Credit for the original app, token tracking, and Pokémon companion goes to the upstream project.
 
 **In-app updates:** checks run at launch and every hour, including while the popover
