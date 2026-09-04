@@ -16,6 +16,10 @@ struct PokeForgeApp: App {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
+    private static var isGameplayPreviewProcess: Bool {
+        CommandLine.arguments.contains("--gameplay-preview") ||
+            Bundle.main.bundleIdentifier == "local.pokeforge.gameplay-preview"
+    }
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private var outsideClickMonitor = OutsideClickMonitor()
@@ -59,11 +63,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var needsSpriteLayout = true
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
-        CommandLine.arguments.contains("--gameplay-preview") || Bundle.main.bundleIdentifier == "local.poketokenbar.progression-preview"
+        Self.isGameplayPreviewProcess
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        if CommandLine.arguments.contains("--gameplay-preview") || Bundle.main.bundleIdentifier == "local.poketokenbar.progression-preview" {
+        if Self.isGameplayPreviewProcess {
             do { try GameplayPreview.start() }
             catch { print("Could not open isolated gameplay preview: \(error)"); NSApp.terminate(nil) }
             return

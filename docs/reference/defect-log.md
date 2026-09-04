@@ -11,6 +11,20 @@ read_when:
 
 # 결함 대응 축적 규칙
 
+## Gameplay preview executable after product rename (2026-09-04)
+
+- The PokeForge rename changed the Swift product binary and app identity, but the
+  progression preview script, Info.plist and launch branch still named
+  `PokeTokenBar`. Each feature had passed on its own branch; the merge test suite
+  never executed the packaging script, so `cp` failed only during the next native
+  preview. Fixing only that copy then launched the production path and immediately
+  exited as a duplicate, exposing the second stale identity check.
+- Keep the preview's copied binary, `CFBundleExecutable`, bundle identifier and
+  launch-branch identifier aligned. `GameplayPreviewPackagingTests` scans all
+  three files and fails if the old executable or identity returns. A native
+  `scripts/preview-gameplay.sh` run remains the end-to-end proof because source
+  scanning cannot prove that the binary exists or that the sandbox window opens.
+
 ## Ready egg after asynchronous prefetch (2026-09-04)
 
 - Native progression QA reached a full incubation meter without a hatch: one

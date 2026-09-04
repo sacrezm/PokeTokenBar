@@ -58,9 +58,18 @@ struct PokemonGameplayView: View {
     let store: CompanionStore
     @State private var confirmingCandy = false
     @State private var showingHelp = false
+    @State private var showingMagikarpFlap = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
+        if showingMagikarpFlap {
+            MagikarpFlapView { showingMagikarpFlap = false }
+        } else {
+            gameplay
+        }
+    }
+
+    private var gameplay: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 VStack(alignment: .leading, spacing: 8) {
@@ -135,6 +144,16 @@ struct PokemonGameplayView: View {
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
+                }
+                HStack {
+                    Spacer()
+                    Button {
+                        showingMagikarpFlap = true
+                    } label: {
+                        Label("Magikarp Flap", systemImage: "gamecontroller.fill")
+                    }
+                    .buttonStyle(.bordered).controlSize(.small)
+                    .help("Play a score-only mini-game. It does not affect Pokémon progress or tokens.")
                 }
             }
             .padding(.vertical, 6)

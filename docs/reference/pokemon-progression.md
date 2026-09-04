@@ -3,6 +3,14 @@
 This is a custom, token-driven fan-game loop, not a simulation of the main-series
 capture or evolution formulas. Trainer battles and exploration are not implemented.
 
+## Magikarp Flap
+
+The Pokémon screen includes an optional score-only mini-game. Click or press Space
+to flap through the gates; a local high score is remembered. Opening or playing it
+does not spend tokens, grant XP or EVs, change catching progress, or affect owned
+Pokémon. Its frame clock starts with a round and stops at game over or when the
+mini-game leaves the screen.
+
 ## Daily loop
 
 Open **Pokémon** and select Catch, Train or Balanced beside **Activity**.

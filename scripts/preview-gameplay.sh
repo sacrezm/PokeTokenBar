@@ -9,11 +9,12 @@ if [[ -d /Applications/Xcode.app/Contents/Developer ]]; then
 fi
 swift build
 PTB_BIN_DIR=$(swift build --show-bin-path)
+PTB_BIN_NAME=PokeForge
 mkdir -p build
 PTB_PREVIEW_DIR=$(mktemp -d "$PWD/build/gameplay-preview-XXXXXX")
-PTB_PREVIEW_APP="$PTB_PREVIEW_DIR/Pokemon Progression Preview.app"
+PTB_PREVIEW_APP="$PTB_PREVIEW_DIR/PokeForge Gameplay Preview.app"
 mkdir -p "$PTB_PREVIEW_APP/Contents/MacOS" "$PTB_PREVIEW_APP/Contents/Resources" "$PTB_PREVIEW_APP/Contents/Frameworks"
-cp "$PTB_BIN_DIR/PokeTokenBar" "$PTB_PREVIEW_APP/Contents/MacOS/PokeTokenBar"
+cp "$PTB_BIN_DIR/$PTB_BIN_NAME" "$PTB_PREVIEW_APP/Contents/MacOS/$PTB_BIN_NAME"
 cp scripts/gameplay-preview/Info.plist "$PTB_PREVIEW_APP/Contents/Info.plist"
 cp assets/AppIcon.icns "$PTB_PREVIEW_APP/Contents/Resources/AppIcon.icns"
 ditto .build/artifacts/sparkle/Sparkle/Sparkle.xcframework/macos-arm64_x86_64/Sparkle.framework "$PTB_PREVIEW_APP/Contents/Frameworks/Sparkle.framework"

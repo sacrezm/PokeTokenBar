@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
-    <key>CFBundleIdentifier</key><string>local.poketokenbar.progression-preview</string>
-    <key>CFBundleName</key><string>Pokémon Progression Preview</string>
-    <key>CFBundleExecutable</key><string>PokeTokenBar</string>
+    <key>CFBundleIdentifier</key><string>local.pokeforge.gameplay-preview</string>
+    <key>CFBundleName</key><string>PokéForge Gameplay Preview</string>
+    <key>CFBundleExecutable</key><string>PokeForge</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>0.1.0</string>
     <key>CFBundleVersion</key><string>1</string>
