@@ -42,7 +42,7 @@ APP="build/PokeTokenBar.app"
 BUILT=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP/Contents/Info.plist")
 [[ "$BUILT" == "$VERSION" ]] || { echo "Built version mismatch"; exit 1; }
 codesign --verify --strict "$APP"
-lipo -verify_arch arm64 x86_64 "$APP/Contents/MacOS/PokeTokenBar"
+lipo "$APP/Contents/MacOS/PokeTokenBar" -verify_arch arm64 x86_64
 ZIP="build/PokeTokenBar-v$VERSION.zip"
 [[ ! -e "$ZIP" ]] || { echo "$ZIP already exists; inspect it before retrying"; exit 1; }
 ditto -c -k --keepParent "$APP" "$ZIP"
