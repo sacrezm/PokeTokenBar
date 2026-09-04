@@ -105,19 +105,19 @@ enum Rarity: String, Codable, Sendable {
     }
 }
 
-/// 토큰 경제 — 실측 평균(~253M/일) 기준.
+/// Faster collection-cycle costs. Levels/EVs live in PokemonProgression separately.
 /// 졸업 총량 T 는 같은 희귀도면 진화 단계 수와 무관하게 동일.
 /// 형태 k개 라인에서 i번째 형태 성장 비용 = T·i / (k(k+1)/2) → 합 = T, 단계↑일수록 비용↑.
 enum PokemonBalance {
     /// 알 부화 임계 — 이만큼 토큰을 써야 알이 깨진다(즉시 부화 대신 기대감). 초과분은 부화체 성장에 이월.
-    static let eggHatchThreshold = 5_000_000
+    static let eggHatchThreshold = 1_000_000
 
     static func graduationTotal(_ rarity: Rarity) -> Int {
         switch rarity {
-        case .common:    return    750_000_000
-        case .uncommon:  return  1_875_000_000
-        case .rare:      return  3_000_000_000
-        case .legendary: return  6_000_000_000
+        case .common:    return     75_000_000
+        case .uncommon:  return    187_500_000
+        case .rare:      return    300_000_000
+        case .legendary: return    600_000_000
         }
     }
     /// stageIndex(0-based)에서 다음 단계/졸업까지 필요한 토큰.
@@ -171,29 +171,21 @@ enum ItemKind: String, Codable, Sendable, CaseIterable {
 
 /// 이상한 사탕 밸런스 상수.
 enum RareCandy {
-    /// 사용 시 현재 포켓몬에 주입하는 XP(토큰 환산). 최소 진화 임계(커먼 1형태 125M)보다 작아
-    /// 사탕 1개는 최대 1단계만 올린다(연쇄·졸업 폭주 없음). applyUsage 로 주입 → 이월/진화/졸업 자동.
-    static let xp = 100_000_000
     /// 주간 한도 100% 도달 시 지급 개수(세션급은 1개).
     static let weeklyGrant = 5
-    /// 상점 구매가(재화 = 사용한 토큰: usedSinceInstall − spentTokens). XP 값어치(100M)의 5배.
-    /// 토큰이 "성장 미터 + 상점 지갑"으로 이중 사용되는 구조라, 가격을 XP 와 같게 두면 구매가 사실상
-    /// 공짜 추가성장(150M 써서 250M 성장)이 된다. 500M 로 두면 그 값 모으는 500M 패시브 성장 + 사탕
-    /// 100M = 실질 보너스 +20% 로 억제된다. 무료 획득(한도 100% 보상)이 항상 이득이도록 값어치보다 비싸게.
-    static let price = 500_000_000
+    /// Affordable +1 level on the selected trainee; no EVs or catch-meter burst.
+    static let price = 5_000_000
 }
 
 /// 민트 밸런스 상수.
 enum Mint {
-    /// 상점 구매가. 성격 변경은 순수 코스메틱(성장·능력치 무관)이라 밸런스 근거가 없어 "느낌" 값 —
-    /// 사탕(500M)의 1/5로 싸게 둬서 성격을 마음에 들 때까지 굴려보는 가벼운 재미. 성장을 안 줘서
-    /// 이중계산 이슈도 없음(가격 = 순수 소비).
-    static let price = 100_000_000
+    /// Cosmetic nature reroll; future battle nature effects remain out of scope.
+    static let price = 2_000_000
 }
 
 /// 이로치 부적 밸런스 상수 — 보유형(1회 구매·영구, 소비 안 됨).
 enum ShinyCharm {
-    /// 상점 구매가. 앞으로의 모든 부화에 적용되는 영구 럭 업그레이드라 프리미엄(레어 1마리 졸업분=3B).
+    /// A permanent long-term purchase; unchanged by the cheaper one-cycle items.
     static let price = 3_000_000_000
     /// 보유 시 이로치 부화 확률 분모 — 1/64 → 1/48 (+33%). 본가 '반짝이 부적'(이로치 확률↑) 오마주.
     /// ×2(1/32)는 과해 절제. 이미 부화한 개체엔 소급 없음(이로치는 부화 순간 확정).
@@ -202,23 +194,15 @@ enum ShinyCharm {
 
 /// 새 알(리롤) 밸런스 상수 — 상점 구매 시 현재 포켓몬을 폐기하고 새 알로 되돌린다.
 enum FreshEgg {
-    /// 상점 구매가. 마음에 안 드는 부화를 리롤하는 프리미엄(쌓인 토큰의 활용처). 폐기 개체는 졸업이
-    /// 아니라 그냥 사라지므로 도감·확률(collectedFinals)에 무영향 — "뽑은 적 없던 것처럼". 새 알은
-    /// 처음부터 재인큐베이션(5M) 필요 + 성장(usedAtStage) 소멸이라 스팸/파밍이 자연 억제된다.
-    static let price = 1_000_000_000
+    /// Paid reroll still releases the current individual and starts incubation again.
+    static let price = 10_000_000
 
     /// 상점에서 파는 알 — 보증 없음(기본) → 고급 이상 → 희귀 이상. `nil` = 등급 보증 없는 기존 알.
     /// **전설 전용 알은 팔지 않는다**(등급 하한을 capture_rate 로 표현할 수 없고, 최고 등급을 확정
     /// 상품으로 만들지 않는다). 전설은 고급/희귀 알에서 자연 가중대로 섞여 나온다 — 희귀 알 기준 약 10%.
     static let shopTiers: [Rarity?] = [nil, .uncommon, .rare]
 
-    /// 등급 보증 알의 가격 — 배율은 새 상수를 짓지 않고 **기존 졸업 총량 표**를 그대로 쓴다
-    /// (common 750M : uncommon 1.875B : rare 3B = 1 : 2.5 : 4 → 1B / 2.5B / 4B).
-    ///
-    /// 확률 배율(고급 7.16% : 희귀 6.98% ≈ 1 : 2.03)로 매기면 안 된다 — 그러면 같은 값으로 고급 알
-    /// 2개를 사는 쪽이 희귀+ 기대 1.039마리·전설 0.104마리로 희귀 알 1개(1.000·0.100)를 모든 축에서
-    /// 앞질러 상위 티어가 완전 열등재가 된다. 졸업량 배율이라야 상위 티어가 희귀+ 1마리당 4.00B 로
-    /// 하위 반복 구매(4.81B)보다 싸다.
+    /// Retain the 1 : 2.5 : 4 tier ratio at the lower 10M / 25M / 40M prices.
     static func price(guaranteeing tier: Rarity?) -> Int {
         guard let tier else { return price }
         let multiplier = Double(PokemonBalance.graduationTotal(tier)) / Double(PokemonBalance.graduationTotal(.common))
@@ -391,6 +375,8 @@ enum PokemonOdds {
 
 /// 현재 키우는 포켓몬.
 struct MonState: Codable, Sendable {
+    var id = UUID().uuidString
+    var progression = PokemonProgression()
     var baseID: Int
     var pathIDs: [Int]      // 실제 진화 경로(분기 선택 반영)
     var plannedPathIDs: [Int] // 사전에 선택한 전체 진화 경로
@@ -408,7 +394,10 @@ struct MonState: Codable, Sendable {
 
     init(baseID: Int, pathIDs: [Int], plannedPathIDs: [Int]? = nil, stageIndex: Int, usedAtStage: Int,
          rarity: Rarity, totalForms: Int, isShiny: Bool = false, nature: PokemonNature? = nil,
-         dittoDisguise: Int? = nil, dittoRevealed: Bool = false) {
+         dittoDisguise: Int? = nil, dittoRevealed: Bool = false,
+         id: String = UUID().uuidString, progression: PokemonProgression = PokemonProgression()) {
+        self.id = id
+        self.progression = progression
         self.baseID = baseID
         self.pathIDs = pathIDs
         if let plannedPathIDs, !plannedPathIDs.isEmpty {
@@ -429,6 +418,8 @@ struct MonState: Codable, Sendable {
     // 하위호환 디코딩: shiny/nature 는 구버전 저장에 없음 → 기본값.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        progression = (try? c.decode(PokemonProgression.self, forKey: .progression)) ?? PokemonProgression()
         baseID = try c.decode(Int.self, forKey: .baseID)
         pathIDs = try c.decode([Int].self, forKey: .pathIDs)
         // 빈 pathIDs 는 손상 상태 → 디코드 실패시켜 전체 CompanionState 가 기본(알)로 폴백되게 한다.
@@ -455,6 +446,7 @@ struct MonState: Codable, Sendable {
 /// 도감 항목 — 라인 전체(초기→최종) 순서 보존.
 struct DexEntry: Codable, Sendable, Identifiable {
     var id = UUID().uuidString
+    var progression = PokemonProgression()
     var baseID: Int
     var finalID: Int
     var chainOrder: [Int]   // 초기→최종 종 id
@@ -478,8 +470,10 @@ struct DexEntry: Codable, Sendable, Identifiable {
     init(id: String = UUID().uuidString,
          baseID: Int, finalID: Int, chainOrder: [Int], rarity: Rarity,
          caughtAt: Date?, isShiny: Bool = false, nature: PokemonNature? = nil,
-         names: [Int: [String: String]]? = nil, releasedAt: Date? = nil) {
+         names: [Int: [String: String]]? = nil, releasedAt: Date? = nil,
+         progression: PokemonProgression = PokemonProgression()) {
         self.id = id
+        self.progression = progression
         self.baseID = baseID
         self.finalID = finalID
         self.chainOrder = chainOrder
@@ -495,6 +489,7 @@ struct DexEntry: Codable, Sendable, Identifiable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        progression = (try? c.decode(PokemonProgression.self, forKey: .progression)) ?? PokemonProgression()
         baseID = try c.decode(Int.self, forKey: .baseID)
         finalID = try c.decode(Int.self, forKey: .finalID)
         chainOrder = try c.decode([Int].self, forKey: .chainOrder)
@@ -530,6 +525,16 @@ private extension KeyedDecodingContainer {
 
 /// 영속 상태(Application Support JSON). 포켓몬 전환 — 이전 커스텀 캐릭터 상태는 폐기(새로 시작).
 struct CompanionState: Codable, Sendable {
+    var trainingMode: TrainingMode = .catching
+    var trainingTargetID: String?
+    var trainingFocus: PokemonStat = .hp
+    var splitRemainder = 0
+    var ballInventory: [String: Int] = [:]
+    var queuedBall: CatchingBall?
+    var eggBall: CatchingBall?
+    // Received individuals train in the same durable transaction as token usage.
+    // Trading's held inventory remains the authority for current ownership.
+    var receivedTraining: [TradePokemon] = []
     // 토큰: 설치 이후만 측정
     var installBaselineSet = false
     var usedSinceInstall = 0
@@ -579,6 +584,14 @@ struct CompanionState: Codable, Sendable {
     // 전면 손상만 throw → load() 가 원본을 .corrupt 로 백업하고 fresh 로 시작.
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        trainingMode = c.lenient(TrainingMode.self, forKey: .trainingMode, default: .catching)
+        trainingTargetID = c.lenientOptional(String.self, forKey: .trainingTargetID)
+        trainingFocus = c.lenient(PokemonStat.self, forKey: .trainingFocus, default: .hp)
+        splitRemainder = min(1, max(0, c.lenient(Int.self, forKey: .splitRemainder, default: 0)))
+        ballInventory = c.lenient([String: Int].self, forKey: .ballInventory, default: [:])
+        queuedBall = c.lenientOptional(CatchingBall.self, forKey: .queuedBall)
+        eggBall = c.lenientOptional(CatchingBall.self, forKey: .eggBall)
+        receivedTraining = c.lenient([Lossy<TradePokemon>].self, forKey: .receivedTraining, default: []).compactMap(\.value)
         installBaselineSet = c.lenient(Bool.self, forKey: .installBaselineSet, default: false)
         usedSinceInstall   = c.lenient(Int.self, forKey: .usedSinceInstall, default: 0)
         spentTokens        = c.lenient(Int.self, forKey: .spentTokens, default: 0)

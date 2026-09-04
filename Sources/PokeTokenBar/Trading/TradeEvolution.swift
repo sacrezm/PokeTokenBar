@@ -33,7 +33,8 @@ enum TradeEvolution {
         return TradePokemon(creatureID: pokemon.creatureID, speciesID: rule.species,
                             baseID: pokemon.baseID, chainOrder: chain, rarity: pokemon.rarity,
                             isShiny: pokemon.isShiny, nature: pokemon.nature, caughtAt: pokemon.caughtAt,
-                            displayName: rule.name, originalTrainer: pokemon.originalTrainer)
+                            displayName: rule.name, originalTrainer: pokemon.originalTrainer,
+                            progression: pokemon.progression)
     }
 
     /// A previously received individual may return after evolving on another Mac.

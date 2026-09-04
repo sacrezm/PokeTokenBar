@@ -58,7 +58,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// 버튼 폭(=텍스트 길이)이나 스프라이트 크기가 변하면 레이어를 이미지 자리에 다시 맞춰야 한다.
     private var needsSpriteLayout = true
 
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        CommandLine.arguments.contains("--gameplay-preview") || Bundle.main.bundleIdentifier == "local.poketokenbar.progression-preview"
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
+        if CommandLine.arguments.contains("--gameplay-preview") || Bundle.main.bundleIdentifier == "local.poketokenbar.progression-preview" {
+            do { try GameplayPreview.start() }
+            catch { print("Could not open isolated gameplay preview: \(error)"); NSApp.terminate(nil) }
+            return
+        }
         // 로그인 에이전트 등록(plist 의 RunAtLoad)이 이미 떠 있는 앱을 한 번 더 실행한다 — 나중에 뜬
         // 쪽이 물러난다. 메뉴바 항목을 만들기 전에 판정해 아이콘이 떴다 사라지는 깜빡임을 없애고,
         // **`CrashReporter.install` 보다도 앞**에 둔다: 뒤면 물러나는 인스턴스가 running 마커를 덮어쓰고
@@ -87,6 +96,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             identityStore: KeychainIdentityStore(),
             sidecar: TradingSidecar()
         )
+        // Until the durable ownership snapshot is loaded, only the active
+        // (never tradable) companion can train. Failure cannot resurrect old ownership.
+        companion.setTrainingExcludedIDs(Set(companion.state.dex.map(\.id)))
+        companion.trainingLockProvider = { [weak trading] in trading?.progressionLockedIDs ?? [] }
+        trading.currentProgression = { [weak companion] id in companion?.trainingProgressionOverrides[id] }
+        trading.onInventoryChange = { [weak companion] held, received, transferred in
+            companion?.syncTrainingOwnership(held: held, received: received, transferredIDs: transferred)
+        }
         updater = UpdateChecker()
         store.localizationLanguage = companion.language   // 알림 현지화용 미러 시드
         store.onRefresh = { [weak self] in self?.onStoreRefreshed() }   // 한도 로드 후 companion·사탕 지급

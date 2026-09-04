@@ -11,6 +11,35 @@ read_when:
 
 # 결함 대응 축적 규칙
 
+## Ready egg after asynchronous prefetch (2026-09-04)
+
+- Native progression QA reached a full incubation meter without a hatch: one
+  usage update started prefetch, while both hatch attempts returned because the
+  species index was still loading. Finishing that pre-roll had no continuation
+  back into hatching, so another usage refresh was required.
+- Previous tests manually called `hatch` or supplied a ready pending species;
+  neither exercised the suspended-index branch in the real update path.
+- `ensureEggPrefetch` now invokes `hatchIfNeeded` as soon as the pending species
+  is durable and incubation is complete. The existing generation checks still
+  reject work invalidated by imports, equipment or generation changes.
+- Regression: `BallIntegrationTests.testFirstThresholdUpdateHatchesAfterSuspendedPrefetchWithoutSecondRefresh`
+  uses a suspended index and verifies hatch, paid-ball consumption and overflow
+  from one update. Disabling the continuation makes the test fail.
+
+## Progression and ownership (2026-09-04)
+
+- XP/EVs belong to individual IDs, not species or evolution-stage display IDs.
+  Preserve that ID and progression when the active companion graduates.
+- Record training and observed usage in the same companion-save transaction.
+  Received Pokémon use a local progression mirror, but the durable trading
+  snapshot gates eligibility; unavailable or frozen offers never receive EVs.
+- A training target becoming unavailable must not silently select another
+  Pokémon. Tests cover a second eligible individual while the selected one is
+  locked. Tokens fall back to catching until the user chooses a target.
+- Re-read ownership and current progression before encrypting an offer, then
+  freeze the pending individual before the network send can suspend. Inventory
+  display alone is not a current offer snapshot.
+
 `CLAUDE.md` §결함 대응 프로토콜의 4단계(근본원인 → 부류 스윕 → 회귀 테스트 → 영구 캡처)를 거쳐
 남은 규칙들이다. 각 항목은 실제로 겪은 회귀에 묶여 있다.
 

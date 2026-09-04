@@ -857,8 +857,9 @@ final class CompanionStoreTests: XCTestCase {
     func testEggDoesNotHatchBelowThreshold() async {
         let s = store(linear3)
         base(s)
-        use(s, 500_000)   // < 1M
-        XCTAssertEqual(s.state.eggUsage, 500_000)
+        let belowThreshold = PokemonBalance.eggHatchThreshold - 1
+        use(s, belowThreshold)
+        XCTAssertEqual(s.state.eggUsage, belowThreshold)
         XCTAssertTrue(s.isEgg)
         await s.hatchIfNeeded()
         XCTAssertNil(s.state.active)   // 임계 미만 → 미부화
@@ -879,9 +880,11 @@ final class CompanionStoreTests: XCTestCase {
     func testActiveCompanionAppearsInDexBeforeGraduationWithoutDuplicate() async {
         let s = store(linear3)
         await s.hatch(baseID: 1)
+        let activeID = s.state.active?.id
 
         XCTAssertTrue(s.state.dex.isEmpty, "졸업 전 영구 dex 는 비어 있어야 함")
         XCTAssertEqual(s.dexEntries.count, 1, "현재 포켓몬도 도감 화면에는 즉시 보여야 함")
+        XCTAssertEqual(s.dexEntries[0].id, activeID, "화면용 active 엔트리는 개체 ID를 공유해야 함")
         XCTAssertEqual(s.dexEntries[0].chainOrder, [1])
         XCTAssertEqual(s.dexEntries[0].finalID, 1)
 
@@ -894,6 +897,7 @@ final class CompanionStoreTests: XCTestCase {
         s.applyUsage(PokemonBalance.phaseThreshold(rarity: .common, totalForms: 3, stageIndex: 2))
         XCTAssertNil(s.state.active)
         XCTAssertEqual(s.state.dex.count, 1, "졸업 시 영구 엔트리 하나만 저장")
+        XCTAssertEqual(s.state.dex[0].id, activeID, "졸업 시에도 같은 개체 ID를 보존해야 함")
         XCTAssertEqual(s.dexEntries.count, 1, "화면용 active 가 영구 엔트리와 중복되면 안 됨")
         XCTAssertEqual(s.dexEntries[0].chainOrder, [1, 2, 3])
     }
@@ -923,8 +927,10 @@ final class CompanionStoreTests: XCTestCase {
         let s = CompanionStore(provider: StubProvider(value: linear3), clock: { fixedNow },
                                fileURL: url, rng: SeededRNG(seed: 7))
         let sorted = s.dexEntriesSorted
+        let activeID = try XCTUnwrap(s.state.active?.id)
 
-        XCTAssertEqual(sorted.map(\.id), ["active-1-1", "legacy-graduated"])
+        XCTAssertNotEqual(activeID, "active-base-current", "활성 개체 ID는 합성 문자열이 아니어야 함")
+        XCTAssertEqual(sorted.map(\.id), [activeID, "legacy-graduated"])
         XCTAssertTrue(s.isActiveDexEntry(sorted[0]))
         XCTAssertFalse(s.isActiveDexEntry(sorted[1]), "caughtAt=nil 만으로 active 를 판별하면 안 됨")
     }
@@ -1545,16 +1551,19 @@ final class CompanionIdentityTests: XCTestCase {
                                 fileURL: url, rng: SeededRNG(seed: 5))
         XCTAssertNotNil(s2.state.active)
         XCTAssertNil(s2.currentLine)
-        // 라인 없는 상태에서 stage0 임계(125M) 초과 델타 → 유실 없이 적립, 진화는 보류
-        s2.applyUsage(300_000_000)
-        XCTAssertEqual(s2.state.active?.usedAtStage, 300_000_000, "라인 미로딩 중 델타가 유실되면 안 된다")
+        let firstThreshold = PokemonBalance.phaseThreshold(rarity: .common, totalForms: 3, stageIndex: 0)
+        let overflow = 1_000
+        let accumulated = firstThreshold + overflow
+        // 라인 없는 상태에서 stage0 임계 초과 델타 → 유실 없이 적립, 진화는 보류
+        s2.applyUsage(accumulated)
+        XCTAssertEqual(s2.state.active?.usedAtStage, accumulated, "라인 미로딩 중 델타가 유실되면 안 된다")
         XCTAssertEqual(s2.state.active?.stageIndex, 0)
         // update → loadCurrentLine 완료 시 적립분으로 진화 판정(드레인)
         s2.update(todayTokensByProvider: ["test": 0], todayDate: "d1", monthTotal: 0, burnTier: .idle, limitWarning: false, hasUsageData: true)
         for _ in 0..<50 where s2.currentLine == nil { await Task.yield() }
         XCTAssertNotNil(s2.currentLine)
         XCTAssertEqual(s2.state.active?.stageIndex, 1, "라인 로드 후 적립분으로 진화해야 한다")
-        XCTAssertEqual(s2.state.active?.usedAtStage, 300_000_000 - 125_000_000)   // 초과분 이월
+        XCTAssertEqual(s2.state.active?.usedAtStage, overflow)   // 초과분 이월
     }
 
     /// [회귀] 구버전 상태가 GIF 미지원 후대 진화형까지 진행했어도, 라인 재로딩 시 마지막 지원 형태로
@@ -1593,8 +1602,11 @@ final class CompanionIdentityTests: XCTestCase {
 
         let s = store(linear3, seed: seed)
         s.update(todayTokensByProvider: ["test": 0], todayDate: "d1", monthTotal: 0, burnTier: .idle, limitWarning: false, hasUsageData: true)
-        // 알 임계(5M) + stage0 임계(125M) 초과 → 부화 즉시 1회 진화하는 이월
-        s.update(todayTokensByProvider: ["test": 135_000_000], todayDate: "d1", monthTotal: 0, burnTier: .idle, limitWarning: false, hasUsageData: true)
+        let firstThreshold = PokemonBalance.phaseThreshold(rarity: .common, totalForms: 3, stageIndex: 0)
+        let overflow = 1_000
+        // 알 임계 + stage0 임계 초과 → 부화 즉시 1회 진화하는 이월
+        s.update(todayTokensByProvider: ["test": PokemonBalance.eggHatchThreshold + firstThreshold + overflow],
+                 todayDate: "d1", monthTotal: 0, burnTier: .idle, limitWarning: false, hasUsageData: true)
         await s.hatchIfNeeded()
         XCTAssertEqual(s.state.active?.isShiny, true)
         XCTAssertEqual(s.state.active?.stageIndex, 1, "이월로 1회 진화했어야 함")
@@ -1605,8 +1617,10 @@ final class CompanionIdentityTests: XCTestCase {
     func testHatchCelebrationSkippedOnInstantGraduate() async {
         let s = store(noEvo, seed: 11)
         s.update(todayTokensByProvider: ["test": 0], todayDate: "d1", monthTotal: 0, burnTier: .idle, limitWarning: false, hasUsageData: true)
-        // 알 임계 + 졸업 총량(750M) 초과
-        s.update(todayTokensByProvider: ["test": 800_000_000], todayDate: "d1", monthTotal: 0, burnTier: .idle, limitWarning: false, hasUsageData: true)
+        // 알 임계 + 졸업 총량 초과
+        s.update(todayTokensByProvider: ["test": PokemonBalance.eggHatchThreshold
+                                         + PokemonBalance.graduationTotal(.common) + 1],
+                 todayDate: "d1", monthTotal: 0, burnTier: .idle, limitWarning: false, hasUsageData: true)
         await s.hatchIfNeeded()
         XCTAssertNil(s.state.active, "즉시 졸업")
         XCTAssertEqual(s.state.dex.count, 1)
@@ -1703,11 +1717,13 @@ final class CompanionIdentityTests: XCTestCase {
         st.lastDate = "d1"
         let s = samplerStore(p, seed: 5, preloadState: st)
         // 임계 미만 사용 → 부화는 안 되지만 프리패칭은 돌아야 한다
-        s.update(todayTokensByProvider: ["test": 1_000], todayDate: "d1", monthTotal: 0, burnTier: .idle, limitWarning: false, hasUsageData: true)
+        let prefetchUsage = min(1_000, max(0, PokemonBalance.eggHatchThreshold - 1))
+        s.update(todayTokensByProvider: ["test": prefetchUsage], todayDate: "d1", monthTotal: 0, burnTier: .idle, limitWarning: false, hasUsageData: true)
         for _ in 0..<50 where s.state.pendingHatchID == nil { await Task.yield() }
         XCTAssertEqual(s.state.pendingHatchID, 77, "알 상태에서 종이 미리 롤/저장돼야 한다")
         // 임계 도달 → 부화는 pending 그대로 (추가 선택 롤 없음: shiny/nature 만 소비)
-        s.update(todayTokensByProvider: ["test": 6_000_000], todayDate: "d1", monthTotal: 0, burnTier: .idle, limitWarning: false, hasUsageData: true)
+        s.update(todayTokensByProvider: ["test": PokemonBalance.eggHatchThreshold + prefetchUsage],
+                 todayDate: "d1", monthTotal: 0, burnTier: .idle, limitWarning: false, hasUsageData: true)
         await s.hatchIfNeeded()
         XCTAssertEqual(s.state.active?.baseID, 77)
         XCTAssertNil(s.state.pendingHatchID, "부화 후 pending 은 비워져야 한다")

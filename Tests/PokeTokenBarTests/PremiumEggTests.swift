@@ -124,9 +124,14 @@ final class PremiumEggTests: XCTestCase {
     // MARK: 가격 — 졸업 총량 배율(새 상수 금지)
 
     func testPricesFollowGraduationTotalRatio() {
-        XCTAssertEqual(FreshEgg.price(guaranteeing: nil), 1_000_000_000)
-        XCTAssertEqual(FreshEgg.price(guaranteeing: .uncommon), 2_500_000_000)
-        XCTAssertEqual(FreshEgg.price(guaranteeing: .rare), 4_000_000_000)
+        let basePrice = FreshEgg.price(guaranteeing: nil)
+        let commonTotal = Double(PokemonBalance.graduationTotal(.common))
+        for tier in [Rarity.uncommon, .rare] {
+            let expected = Int((Double(basePrice)
+                * Double(PokemonBalance.graduationTotal(tier)) / commonTotal).rounded())
+            XCTAssertEqual(FreshEgg.price(guaranteeing: tier), expected,
+                           "\(tier) 알 가격은 졸업 총량 비율을 따라야 함")
+        }
         XCTAssertEqual(FreshEgg.shopTiers, [nil, .uncommon, .rare])
     }
 
@@ -201,7 +206,8 @@ final class PremiumEggTests: XCTestCase {
 
     /// 잔액이 그 **티어의** 가격에 미달이면 불가 — 기본 알은 살 수 있어도 희귀 알은 못 산다.
     func testFundsAreCheckedAgainstTierPrice() {
-        let s = activeStore(used: 3_000_000_000)   // 1B·2.5B 는 되고 4B 는 안 되는 잔액
+        let rarePrice = FreshEgg.price(guaranteeing: .rare)
+        let s = activeStore(used: rarePrice - 1)   // 희귀 알 가격 미만이지만 하위 티어는 가능
         XCTAssertTrue(s.canBuyEgg(nil))
         XCTAssertTrue(s.canBuyEgg(.uncommon))
         XCTAssertFalse(s.canBuyEgg(.rare))
@@ -261,7 +267,7 @@ final class PremiumEggTests: XCTestCase {
     /// 고급 알은 common **만** 배제한다 — 고급·희귀·전설은 모두 정상 결과다(전설 포함이 의도).
     ///
     /// `r != .common` 만 보면 **과잉 필터**를 못 잡는다: 두 롤 경로가 `tier` 를 무시하고 늘 희귀로
-    /// 걸러도 이 단언은 통과하고, 그러면 2.5B 고급 알과 4B 희귀 알의 풀이 같아져 희귀 알이 완전
+    /// 걸러도 이 단언은 통과하고, 그러면 고급 알과 희귀 알의 풀이 같아져 희귀 알이 완전
     /// 열등재가 된다(가격 근거가 통째로 무너지는데 테스트는 초록). 그래서 **고급이 실제로 나오는지**를
     /// 함께 못박는다 — 산 티어가 그대로 필터에 전달된다는 증거.
     func testUncommonEggHatchesUncommonAndExcludesOnlyCommon() async {

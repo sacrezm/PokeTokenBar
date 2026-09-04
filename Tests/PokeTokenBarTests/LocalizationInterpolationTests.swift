@@ -107,11 +107,16 @@ final class LocalizationInterpolationTests: XCTestCase {
             expect(lang, "buyConfirm", l.buyConfirm(a), a)
             expect(lang, "ownedCount", l.ownedCount(4242), "4242")
             expect(lang, "eggConfirm", l.eggConfirm(a, b), a, b)
-            // Constant-derived substitution: hardcode it and the candy blurb drifts
-            // away from the real XP value.
-            // 상수 파생 치환 — 하드코딩으로 드리프트하면 사탕 설명이 실제 XP 와 어긋난다.
-            expect(lang, "itemDescription(.rareCandy)", l.itemDescription(.rareCandy),
-                   TokenFormatter.compact(RareCandy.xp))
+            // Rare Candy is semantic copy now: it promises one selected-Pokémon level
+            // and no EVs, rather than interpolating a catch-meter XP amount.
+            // 이상한 사탕은 이제 포획 XP 수치가 아니라 레벨 +1 및 EV 불변을 설명한다.
+            let candyDescription = l.itemDescription(.rareCandy)
+            XCTAssertFalse(candyDescription.isEmpty, "\(lang.rawValue).itemDescription(.rareCandy)")
+            XCTAssertTrue(candyDescription.contains("1"),
+                          "\(lang.rawValue).itemDescription(.rareCandy) must mention one level: '\(candyDescription)'")
+            let evMarker = ["EV", "努力値"].first { candyDescription.contains($0) }
+            XCTAssertNotNil(evMarker,
+                            "\(lang.rawValue).itemDescription(.rareCandy) must mention EVs: '\(candyDescription)'")
             // Rarity label spliced into copy: a translation that spells the tier out
             // instead of substituting it is caught here.
             // 등급 라벨을 끼워 넣는 문구 — 번역이 치환 대신 등급을 고정 표기하면 여기서 걸린다.

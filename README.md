@@ -45,11 +45,13 @@ The original author and contributors retain credit for the foundation. Fork-spec
 
 ## Where we’re going
 
-**In development:** Pokémon levels, XP, EV training, dedicated catching and training modes, and a faster collection loop with more ball choices.
+**Available on `main` for local playtesting:** Pokémon levels 5–100, XP, six capped EV stats, Catch / Train / Balanced modes, a faster collection cycle, and affordable optional catching balls. Training supports locally raised and currently owned traded Pokémon. See [the gameplay rules](docs/reference/pokemon-progression.md).
+
+Run `./scripts/preview-gameplay.sh` for a native sandbox with simulated-token buttons. It uses a separate app identity and save folder, never replaces the installed app, and does not scan real usage or connect to the trading relay.
 
 **Later:** Pokémon battles against other trainers, giving the team you have raised a new purpose.
 
-These features are not available in the current release. Trading works today; battles are a future milestone.
+The progression playtest is not included in the latest published release yet. Trading works today; battles and exploration remain future milestones.
 
 ## Screenshots
 

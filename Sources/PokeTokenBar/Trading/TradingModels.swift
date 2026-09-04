@@ -18,10 +18,10 @@ struct TradingFriend: Codable, Equatable, Identifiable, Sendable {
     }
 }
 
-/// The only origin data carried by a Pokémon.  All properties are immutable:
-/// a receive or a later re-trade can carry this snapshot forward but cannot
-/// rewrite it.  Authenticating locally-created records is deliberately out of
-/// scope for this first slice.
+/// The only origin data carried by a Pokémon.  Identity and origin properties
+/// are immutable: a receive or a later re-trade carries this snapshot forward
+/// but cannot rewrite it. Authenticating locally-created records is deliberately
+/// out of scope for this first slice.
 struct OriginalTrainer: Codable, Equatable, Sendable {
     let trainerID: String
     let trainerName: String
@@ -46,6 +46,12 @@ struct TradePokemon: Codable, Equatable, Identifiable, Sendable {
     let caughtAt: Date?
     let displayName: String
     let originalTrainer: OriginalTrainer
+    var progression: PokemonProgression
+
+    private enum CodingKeys: String, CodingKey {
+        case creatureID, speciesID, baseID, chainOrder, rarity, isShiny, nature,
+             caughtAt, displayName, originalTrainer, progression
+    }
 
     var id: String { creatureID }
 
@@ -59,7 +65,8 @@ struct TradePokemon: Codable, Equatable, Identifiable, Sendable {
         nature: PokemonNature?,
         caughtAt: Date?,
         displayName: String,
-        originalTrainer: OriginalTrainer
+        originalTrainer: OriginalTrainer,
+        progression: PokemonProgression = PokemonProgression()
     ) {
         self.creatureID = creatureID
         self.speciesID = speciesID
@@ -71,6 +78,25 @@ struct TradePokemon: Codable, Equatable, Identifiable, Sendable {
         self.caughtAt = caughtAt
         self.displayName = displayName
         self.originalTrainer = originalTrainer
+        self.progression = progression
+    }
+
+    /// Trade payloads predating individual progression remain valid. A missing
+    /// or malformed progression field is the same as a fresh level-five record,
+    /// matching the migration policy of the local companion models.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        creatureID = try c.decode(String.self, forKey: .creatureID)
+        speciesID = try c.decode(Int.self, forKey: .speciesID)
+        baseID = try c.decode(Int.self, forKey: .baseID)
+        chainOrder = try c.decode([Int].self, forKey: .chainOrder)
+        rarity = try c.decode(Rarity.self, forKey: .rarity)
+        isShiny = try c.decode(Bool.self, forKey: .isShiny)
+        nature = try c.decodeIfPresent(PokemonNature.self, forKey: .nature)
+        caughtAt = try c.decodeIfPresent(Date.self, forKey: .caughtAt)
+        displayName = try c.decode(String.self, forKey: .displayName)
+        originalTrainer = try c.decode(OriginalTrainer.self, forKey: .originalTrainer)
+        progression = (try? c.decode(PokemonProgression.self, forKey: .progression)) ?? PokemonProgression()
     }
 }
 

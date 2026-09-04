@@ -34,6 +34,14 @@ final class PopoverNavigationTests: XCTestCase {
         XCTAssertEqual(nav.tab, .collection)
         XCTAssertEqual(nav.collectionTab, .pokedex, "Representative selection still opens the Pokédex")
     }
+
+    func testUsageIsSeparateAndResetReturnsToUnifiedPokemonHome() {
+        let nav = PopoverNavigation()
+        nav.tab = .usage
+        nav.reset()
+        XCTAssertEqual(nav.tab, .home)
+        XCTAssertEqual(L(.en).usageTab, "Usage")
+    }
 }
 
 final class RepresentativeLocalizationTests: XCTestCase {

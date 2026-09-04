@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-enum PopoverTab { case home, shop, bag, collection, trade }
+enum PopoverTab { case home, shop, bag, collection, usage, trade }
 enum CollectionTab { case owned, pokedex, catchLog }
 
 /// 팝오버 치수의 단일 소스. 자식이 쓸 수 있는 폭을 알아야 할 때 이 값을 쓴다 — 넘치는 자식이
@@ -105,7 +105,8 @@ struct PopoverView: View {
         return VStack(alignment: .leading, spacing: 12) {
             updateBanner
             Picker("", selection: $nav.tab) {
-                Text(l.home).tag(PopoverTab.home)
+                Text("Pokémon").tag(PopoverTab.home)
+                Text(l.usageTab).tag(PopoverTab.usage)
                 Text(l.shop).tag(PopoverTab.shop)
                 Text(l.bag).tag(PopoverTab.bag)
                 Text(l.collection).tag(PopoverTab.collection)
@@ -121,17 +122,18 @@ struct PopoverView: View {
             }
             if nav.tab == .trade {
                 TradingView().environment(trading).environment(companion)
+            } else if nav.tab == .home {
+                PokemonGameplayView(store: companion)
             } else if nav.tab == .collection {
                 CollectionView(store: companion, navigation: nav,
-                               received: trading.receivedInventory,
-                               held: trading.heldInventory, transferredIDs: trading.transferredIDs)
+                               received: trading.receivedInventory.map(companion.trainedVersion),
+                               held: trading.heldInventory.map(companion.trainedVersion),
+                               transferredIDs: trading.transferredIDs)
             } else if nav.tab == .bag {
                 BagView(store: companion, nav: nav)
             } else if nav.tab == .shop {
                 ShopView(store: companion, nav: nav)
             } else {
-                CompanionHeader(store: companion)
-                Divider()
                 header
                 Divider()
                 providerStatusBanner   // 인시던트 있을 때만 — 한도 가용 여부와 무관(API 다운=한도 nil 케이스에도)

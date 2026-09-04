@@ -471,6 +471,13 @@ struct CompanionHeader: View {
     /// 부화 임박(90%+) — 알이 흔들리고 문구가 바뀐다.
     private var eggImminent: Bool { store.isEgg && store.eggProgress >= 0.9 }
 
+    /// The active individual keeps its progression in the same identity that is
+    /// projected into the Pokédex, so the home header can show the live level
+    /// without adding a second store-only display model.
+    private var activeLevel: Int? {
+        store.dexEntries.first(where: store.isActiveDexEntry)?.progression.level
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .center, spacing: 12) {
@@ -520,6 +527,13 @@ struct CompanionHeader: View {
                     HStack(spacing: 6) {
                         Text(store.displayName).font(.callout.weight(.semibold))
                         if store.currentIsShiny { Text("✨").font(.system(size: 11)) }
+                        if let level = activeLevel {
+                            Text("Lv. \(level)").font(.system(size: 8, weight: .bold))
+                                .padding(.horizontal, 5).padding(.vertical, 1)
+                                .background(Color.orange.opacity(0.16))
+                                .foregroundStyle(.orange)
+                                .clipShape(Capsule())
+                        }
                         if let r = store.rarity {
                             Text(store.l.rarityLabel(r).uppercased()).font(.system(size: 8, weight: .bold))
                                 .padding(.horizontal, 5).padding(.vertical, 1)
@@ -756,13 +770,15 @@ struct CollectionView: View {
     var body: some View {
         @Bindable var nav = navigation
         VStack(alignment: .leading, spacing: 8) {
-            Picker("Collection", selection: $nav.collectionTab) {
-                Text("Owned").tag(CollectionTab.owned)
-                Text(store.l.dexTitle).tag(CollectionTab.pokedex)
-                Text(store.l.catchLogTitle).tag(CollectionTab.catchLog)
+            if selectedOwnedID == nil {
+                Picker("Collection", selection: $nav.collectionTab) {
+                    Text("Owned").tag(CollectionTab.owned)
+                    Text(store.l.dexTitle).tag(CollectionTab.pokedex)
+                    Text(store.l.catchLogTitle).tag(CollectionTab.catchLog)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
             switch nav.collectionTab {
             case .owned: ownedCollection
             case .pokedex:
@@ -816,6 +832,8 @@ struct CollectionView: View {
                                         .font(.callout.weight(.semibold))
                                     Text(pokemon.isRaising ? "Raising now" : pokemon.originalTrainer.map { "Original Trainer: \($0)" } ?? "In collection")
                                         .font(.caption2).foregroundStyle(.secondary)
+                                    Text("Lv. \(pokemon.progression.level) · EVs \(pokemon.progression.totalEVs)")
+                                        .font(.caption2).foregroundStyle(.tertiary).monospacedDigit()
                                 }
                                 Spacer(minLength: 0)
                                 Image(systemName: "chevron.right")

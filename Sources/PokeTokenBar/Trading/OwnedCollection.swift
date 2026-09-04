@@ -14,6 +14,7 @@ enum OwnedCollection {
         let rarity: Rarity
         let nature: PokemonNature?
         let recordedAt: Date?
+        let progression: PokemonProgression
 
         var originalTrainerLabel: String { originalTrainer ?? "Not recorded" }
         var generationLabel: String {
@@ -30,15 +31,22 @@ enum OwnedCollection {
                                           ?? "#\(entry.finalID)",
                                       isShiny: entry.isShiny, isRaising: entry.id == activeID,
                                       originalTrainer: nil, originalTrainerID: nil,
-                                      rarity: entry.rarity, nature: entry.nature, recordedAt: entry.caughtAt)
+                                      rarity: entry.rarity, nature: entry.nature, recordedAt: entry.caughtAt,
+                                      progression: entry.progression)
         }
         for pokemon in held {
+            let progression = result[pokemon.creatureID].map {
+                PokemonProgression.preservingProgress(
+                    existing: pokemon.progression,
+                    incoming: $0.progression
+                )
+            } ?? pokemon.progression
             result[pokemon.creatureID] = Pokemon(id: pokemon.creatureID, speciesID: pokemon.speciesID,
                                                 name: pokemon.displayName, isShiny: pokemon.isShiny,
                                                 isRaising: false, originalTrainer: pokemon.originalTrainer.trainerName,
                                                 originalTrainerID: pokemon.originalTrainer.trainerID,
                                                 rarity: pokemon.rarity, nature: pokemon.nature,
-                                                recordedAt: pokemon.caughtAt)
+                                                recordedAt: pokemon.caughtAt, progression: progression)
         }
         return result.values.sorted {
             if $0.isRaising != $1.isRaising { return $0.isRaising }
