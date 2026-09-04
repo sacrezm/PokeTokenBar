@@ -70,6 +70,22 @@ final class CompanionStore {
     // MARK: 파생값 (UI)
 
     var language: AppLanguage { state.language }
+    var hatchGenerations: Set<Int> { state.hatchGenerations }
+
+    func setHatchGenerations(_ selected: Set<Int>) {
+        let valid = selected.intersection(HatchGeneration.all)
+        guard !valid.isEmpty, valid != state.hatchGenerations else { return }
+        state.hatchGenerations = valid
+        if state.active == nil {
+            activeGeneration += 1 // Discard prefetch/hatch work started with the old selection.
+            if let pending = state.pendingHatchID,
+               !HatchGeneration.contains(pending, selected: valid) {
+                state.pendingHatchID = nil
+                prefetchedLineID = nil
+            }
+        }
+        save()
+    }
     func setLanguage(_ lang: AppLanguage) { state.language = lang; save() }
     /// 앱 전체 UI 문자열 — language 변경 시 자동 재렌더.
     var l: L { L(language) }
@@ -876,7 +892,8 @@ final class CompanionStore {
         defer { isHatching = false }
         // 프리패칭된 종이 있으면 그대로 사용(라인·스프라이트 예열됨 → 딜레이 ~0), 없으면 지금 롤.
         let base: Int?
-        if let pending = state.pendingHatchID {
+        if let pending = state.pendingHatchID,
+           HatchGeneration.contains(pending, selected: state.hatchGenerations) {
             base = pending
         } else {
             base = await chooseBase()
@@ -917,6 +934,11 @@ final class CompanionStore {
         prefetchInFlight = true
         defer { prefetchInFlight = false }
 
+        if let pending = state.pendingHatchID,
+           !HatchGeneration.contains(pending, selected: state.hatchGenerations) {
+            state.pendingHatchID = nil
+            prefetchedLineID = nil
+        }
         if state.pendingHatchID == nil {
             guard let id = await chooseBase() else { return }   // 오프라인 → 다음 틱 재시도
             // await 사이에 부화가 끝났거나(active != nil) 상태가 통째로 교체됐으면(세이브 불러오기)
@@ -958,6 +980,7 @@ final class CompanionStore {
 
     /// 실제 부화 로직 — isHatching 락은 호출자(hatch / hatchIfNeeded)가 소유·해제한다.
     private func hatchCore(baseID: Int) async {
+        guard HatchGeneration.contains(baseID, selected: state.hatchGenerations) else { return }
         let generation = activeGeneration
         guard let line = try? await provider.line(baseSpeciesID: baseID) else {
             AppLog.write("hatch: line fetch failed for base \(baseID) — egg kept, retry next tick")
@@ -966,7 +989,8 @@ final class CompanionStore {
         // 라인 fetch 창(네트워크) 동안 활성 개체가 교체됐으면 이 부화 결과를 폐기한다. 세이브 불러오기가
         // 그 창에 들어오면, 여기서 멈추지 않는 한 갓 부화한 개체가 방금 불러온 개체를 덮어쓴다.
         // (loadCurrentLine·revealDitto 와 같은 세대 가드 — isHatching 락은 같은 앱 내 중복 부화만 막는다.)
-        guard activeGeneration == generation else {
+        guard activeGeneration == generation,
+              HatchGeneration.contains(line.baseID, selected: state.hatchGenerations) else {
             AppLog.write("hatch: discarded — active subject replaced during line fetch")
             kickLineLoadIfNeeded()
             return
@@ -993,6 +1017,7 @@ final class CompanionStore {
         // 기존 테스트 RNG 시퀀스 무영향). 위장/리빌 로직은 상태 기반으로 별도 테스트한다.
         var dittoDisguise: Int?
         if dittoDisguiseRollingEnabled,
+           state.hatchGenerations.contains(HatchGeneration.kanto.rawValue),
            Self.dittoDisguiseHit(rarity: line.rarity, totalForms: line.totalForms, roll: rng.next()) {
             dittoDisguise = line.baseID
         }
@@ -1089,7 +1114,8 @@ final class CompanionStore {
             // 등급 보증 알은 후보를 먼저 좁힌다 — capture_rate 상한이 곧 등급 하한이므로
             // (Rarity.captureRateCeiling) 전설도 자연히 포함된다("희귀 이상"에 전설이 들어가는 게 정상).
             // 좁힌 결과가 비면 보증을 못 지키므로 전체 풀로 폴백하지 말고 알을 유지한다(다음 틱 재시도).
-            let index = tier.map { t in full.filter { t.includes(captureRate: $0.captureRate) } } ?? full
+            let eligible = full.filter { HatchGeneration.contains($0.id, selected: state.hatchGenerations) }
+            let index = tier.map { t in eligible.filter { t.includes(captureRate: $0.captureRate) } } ?? eligible
             guard !index.isEmpty else {
                 AppLog.write("hatch: no candidate for guaranteed \(tier?.rawValue ?? "none") — egg kept, retry next tick")
                 return nil
@@ -1116,9 +1142,10 @@ final class CompanionStore {
     /// line() 이 실제 capture_rate 로 계산하므로 결과 개체의 등급은 정확하다. 인덱스 복구 시 가중 선택 재개.
     private func chooseBaseViaREST() async -> Int? {
         let tier = state.eggTier
+        let ids = HatchGeneration.candidates(selected: state.hatchGenerations)
+        guard !ids.isEmpty else { return nil }
         for attempt in 1...16 {
-            let ids = PokemonAssets.animatedSpeciesIDs
-            let id = Int(rng.next() % UInt64(ids.count)) + ids.lowerBound
+            let id = ids[Int(rng.next() % UInt64(ids.count))]
             do {
                 if let bs = try await provider.baseSpecies(id: id) {
                     // 등급 보증은 가중 경로와 **같은 기준**으로 여기서도 걸러야 한다 — 이 폴백만 빠지면

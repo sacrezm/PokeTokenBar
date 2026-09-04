@@ -1,4 +1,11 @@
-# 릴리스 프로세스
+# Trading fork releases
+
+For this fork, use [the fork release workflow](docs/reference/release-workflow.md).
+`scripts/release.sh` publishes only to `sacrezm/PokeTokenBar`; there is no
+Homebrew tap or Pages step. The remaining text below is historical upstream
+documentation, not the fork's procedure.
+
+# Upstream release process (historical)
 
 버전 배포 시 **코드뿐 아니라 문서(README·웹페이지·cask)까지 일관되게** 갱신하기 위한 런북.
 기계적 단계는 `scripts/release.sh` 가 자동화하고, 내용 판단이 필요한 부분은 아래 체크리스트로 검토한다.

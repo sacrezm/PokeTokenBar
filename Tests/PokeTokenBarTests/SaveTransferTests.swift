@@ -517,7 +517,7 @@ final class SaveTransferTests: XCTestCase {
                                      "collectedFinals", "inventory"]
         let deviceLedger: Set<String> = ["installBaselineSet", "claimedTodayTokensByProvider", "lastDate"]
         let accountLedger: Set<String> = ["candyGrantTier", "candyFeatureSeeded"]
-        let devicePreference: Set<String> = ["language"]
+        let devicePreference: Set<String> = ["language", "hatchGenerations"]
 
         let classified = progress.union(deviceLedger).union(accountLedger).union(devicePreference)
         let actual = Set(Mirror(reflecting: CompanionState()).children.compactMap(\.label))
@@ -535,6 +535,7 @@ final class SaveTransferTests: XCTestCase {
         var mine = CompanionState()
         mine.installBaselineSet = true
         mine.language = .en
+        mine.hatchGenerations = [1, 2]
         try JSONEncoder().encode(mine).write(to: url)
         let s = store(at: url)
         XCTAssertEqual(s.language, .en)
@@ -547,6 +548,7 @@ final class SaveTransferTests: XCTestCase {
                         todayDate: today, hasUsageData: true)
 
         XCTAssertEqual(s.language, .en, "불러온 세이브의 언어가 이 기기 설정을 덮으면 안 된다")
+        XCTAssertEqual(s.hatchGenerations, [1, 2], "Import preserves this Mac's hatch preferences")
         XCTAssertEqual(s.state.dex.count, imported.dex.count, "진행은 그대로 들어와야 한다")
     }
 

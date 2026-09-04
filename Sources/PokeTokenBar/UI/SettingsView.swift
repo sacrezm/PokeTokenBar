@@ -65,6 +65,7 @@ struct SettingsView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
                     generalGroup(store)
+                    hatchGenerationGroup
                     menuBarGroup(store)
                     floatingPetGroup(store)
                     notificationsGroup(store)
@@ -106,6 +107,28 @@ struct SettingsView: View {
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
+    }
+
+    private var hatchGenerationGroup: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Pokémon generations").font(.headline)
+            Text("Choose which generations can hatch. Existing Pokémon, trades and normal evolutions stay unchanged.")
+                .font(.caption).foregroundStyle(.secondary)
+            ForEach(HatchGeneration.allCases, id: \.rawValue) { generation in
+                Toggle(generation.label, isOn: Binding(
+                    get: { companion.hatchGenerations.contains(generation.rawValue) },
+                    set: { enabled in
+                        var selected = companion.hatchGenerations
+                        if enabled { selected.insert(generation.rawValue) }
+                        else { selected.remove(generation.rawValue) }
+                        companion.setHatchGenerations(selected)
+                    }))
+                    .toggleStyle(.checkbox)
+                    .disabled(companion.hatchGenerations == [generation.rawValue])
+            }
+            Text("Select at least one. Hatch catalog: Gen 1–5.")
+                .font(.caption2).foregroundStyle(.secondary)
+        }
     }
 
     private var footer: some View {
@@ -309,6 +332,10 @@ struct SettingsView: View {
     private func updateGroup(_ store: UsageStore) -> some View {
         @Bindable var store = store
         settingsSection(l.updateSectionTitle) {
+            Text("Trading fork · GitHub Releases")
+                .font(.caption).foregroundStyle(.secondary)
+            Text("Download the new app, quit this one, and replace it in Applications. Your Pokémon stay on this Mac.")
+                .font(.caption2).foregroundStyle(.secondary)
             toggleRow(l.updateNotificationsLabel, $store.updateNotificationsEnabled)
             Divider()
             groupRow {
@@ -334,10 +361,16 @@ struct SettingsView: View {
             if didCheckUpdate, !isCheckingUpdate {
                 Divider()
                 groupRow {
-                    if let version = updater.available?.version {
+                    if updater.checkFailed {
+                        Text("Couldn't check for updates. Try again later.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else if updater.noPublishedRelease {
+                        Text("No public release is available for this fork yet.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    } else if let version = updater.available?.version {
                         Text(l.updateFound(version)).font(.caption).foregroundStyle(.orange)
                         Spacer()
-                        Button(l.updateButton) { updater.applyUpdate() }.controlSize(.small)
+                        Button("Download") { updater.applyUpdate() }.controlSize(.small)
                     } else {
                         Text(l.upToDate(Self.appVersion)).font(.caption).foregroundStyle(.secondary)
                         Spacer()

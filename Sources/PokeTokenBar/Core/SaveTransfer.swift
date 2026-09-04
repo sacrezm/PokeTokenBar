@@ -193,6 +193,7 @@ enum SaveTransfer {
                                      hasUsageData: Bool) -> CompanionState {
         var state = imported
         state.language = current.language
+        state.hatchGenerations = current.hatchGenerations
         state.candyGrantTier = mergedGrantTier(imported.candyGrantTier, current.candyGrantTier)
         state.candyFeatureSeeded = imported.candyFeatureSeeded || current.candyFeatureSeeded
         let hasCurrentProviderData = hasUsageData && !todayTokensByProvider.isEmpty

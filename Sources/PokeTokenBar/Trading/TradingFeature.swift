@@ -51,6 +51,11 @@ final class TradingFeature {
     private(set) var friendRequests: [TradingFriendRequest] = []
     private(set) var invites: [TradingInvite] = []
     private(set) var heldInventory: [TradePokemon] = []
+    private(set) var receivedInventory: [TradePokemon] = []
+    private(set) var transferredIDs: Set<String> = []
+    private(set) var completion: TradeReceipt?
+    private(set) var hasUnreadActivity = false
+    @ObservationIgnored var onActivity: ((TradingActivity) -> Void)?
     private(set) var activeTrade: ActiveTrade?
     private(set) var lastError: String?
 
@@ -62,6 +67,8 @@ final class TradingFeature {
     @ObservationIgnored private var socket: URLSessionWebSocketTask?
     @ObservationIgnored private var receiveTask: Task<Void, Never>?
     @ObservationIgnored private var pending: [String: PendingTrade]
+    @ObservationIgnored private var backgroundTask: Task<Void, Never>?
+    @ObservationIgnored private var polling = false
 
     private static let profileKey = "PokeTokenBar.trading.profile.v1"
     private static let pendingKey = "PokeTokenBar.trading.pending.v1"
@@ -111,12 +118,94 @@ final class TradingFeature {
 
     func start() async {
         do {
-            heldInventory = try await sidecar.heldInventory()
+            try await refreshLocalInventory()
+            hasUnreadActivity = defaults.bool(forKey: activityKey + ".unread")
+            if trainerID != nil { _ = await pollUpdates() }
+        } catch {
+            lastError = message(for: error)
+        }
+    }
+
+    /// Owned by the app, not the transient popover. One sequential poll at a time.
+    func startBackgroundUpdates(intervalNanoseconds: UInt64 = 15_000_000_000) {
+        guard backgroundTask == nil else { return }
+        let interval = min(max(intervalNanoseconds, 10_000_000), 120_000_000_000)
+        backgroundTask = Task { [weak self] in
+            var delay = interval
+            while !Task.isCancelled {
+                do { try await Task.sleep(nanoseconds: delay) }
+                catch { return }
+                guard !Task.isCancelled else { return }
+                guard let success = await self?.pollUpdates() else { return }
+                delay = success ? interval : min(delay * 2, 120_000_000_000)
+            }
+        }
+    }
+
+    func stopBackgroundUpdates() {
+        backgroundTask?.cancel()
+        backgroundTask = nil
+    }
+
+    @discardableResult
+    func pollUpdates() async -> Bool {
+        guard trainerID != nil, !polling else { return true }
+        polling = true
+        defer { polling = false }
+        do {
             try await refreshFriends()
             try await refreshInvites()
             try await recoverReceipts()
+            return true
         } catch {
-            lastError = message(for: error)
+            // Retry quietly with backoff; never turn a network outage into an alert storm.
+            return false
+        }
+    }
+
+    private var activityKey: String { "PokeTokenBar.trading.activity.v1." + serverURL }
+
+    func markActivityRead() {
+        hasUnreadActivity = false
+        defaults.set(false, forKey: activityKey + ".unread")
+    }
+
+    func dismissCompletion() { completion = nil }
+
+    func receivedPokemon(for receipt: TradeReceipt) -> TradePokemon {
+        receivedInventory.first { $0.creatureID == receipt.incoming.creatureID } ?? receipt.incoming
+    }
+
+    private func publish(_ activity: TradingActivity) {
+        var seen = defaults.stringArray(forKey: activityKey) ?? []
+        guard !seen.contains(activity.id) else { return }
+        seen.append(activity.id)
+        defaults.set(seen, forKey: activityKey)
+        hasUnreadActivity = true
+        defaults.set(true, forKey: activityKey + ".unread")
+        onActivity?(activity)
+    }
+
+    func refreshLocalInventory() async throws {
+        let state = try await sidecar.state()
+        heldInventory = state.heldInventory
+        receivedInventory = state.receivedInventory
+        transferredIDs = state.transferredIDs
+    }
+
+    /// Notify only after the durable local write, and never replay an applied receipt.
+    func applyLocalReceipt(_ receipt: TradeReceipt) async throws {
+        let result = try await sidecar.apply(receipt)
+        try await refreshLocalInventory()
+        if result == .applied {
+            completion = receipt
+            let received = receivedPokemon(for: receipt)
+            let evolved = received.speciesID != receipt.incoming.speciesID
+            publish(TradingActivity(id: "complete:" + receipt.receiptID,
+                                    title: evolved ? "Trade evolution!" : "Trade complete!",
+                                    body: evolved
+                                        ? "\(receipt.incoming.displayName) evolved into \(received.displayName)!"
+                                        : "You received \(received.displayName)."))
         }
     }
 
@@ -184,6 +273,10 @@ final class TradingFeature {
         friends = try result.friends.map(friend)
         friendRequests = try result.requests.map(friendRequest)
         try await sidecar.setFriends(friends)
+        for request in friendRequests where request.status == "pending" && request.addresseeID == trainerID {
+            publish(TradingActivity(id: "friend:" + request.id, title: "Friend request",
+                                    body: "\(request.other.trainerName) wants to be your friend."))
+        }
     }
 
     @discardableResult
@@ -203,6 +296,16 @@ final class TradingFeature {
         let data = try await request("/v1/trades/invites", method: "GET")
         let result = try decode(InvitesWire.self, from: data)
         invites = try result.invites.map(tradingInvite)
+        for invite in invites {
+            if invite.status == "pending", invite.inviteeID == trainerID {
+                publish(TradingActivity(id: "invite:" + invite.id, title: "Trade request",
+                                        body: "\(invite.other.trainerName) wants to trade Pokémon."))
+            } else if invite.status == "accepted", invite.inviterID == trainerID,
+                      pending[invite.tradeID] != nil {
+                publish(TradingActivity(id: "accepted:" + invite.id, title: "Trade accepted",
+                                        body: "\(invite.other.trainerName) is ready. Open Trade to join."))
+            }
+        }
     }
 
     @discardableResult
@@ -301,7 +404,9 @@ final class TradingFeature {
                 }
             }
         } catch {
-            if !Task.isCancelled { lastError = message(for: error); activeTrade?.status = .failed }
+            if !Task.isCancelled, activeTrade?.receipt == nil {
+                lastError = message(for: error); activeTrade?.status = .failed
+            }
         }
     }
 
@@ -361,7 +466,7 @@ final class TradingFeature {
         try await applyReceipt(receipt, offerA: offerA, offerB: offerB,
                                outgoingCreatureID: pendingRecord.outgoingCreatureID,
                                peer: trade.peer)
-        activeTrade?.status = .committed
+        if activeTrade?.tradeID == receipt.tradeID { activeTrade?.status = .committed }
     }
 
     private func applyReceipt(_ receipt: ReceiptWire, offerA: OfferWire, offerB: OfferWire,
@@ -380,10 +485,12 @@ final class TradingFeature {
         let pokemon = try TradeCrypto.decrypt(encrypted, from: peerIdentity, using: identityStore)
         let localReceipt = TradeReceipt(receiptID: receipt.tradeID, tradeID: receipt.tradeID,
                                         outgoingCreatureID: outgoingCreatureID, incoming: pokemon)
-        _ = try await sidecar.apply(localReceipt)
-        heldInventory = try await sidecar.heldInventory()
-        activeTrade?.receipt = localReceipt
-        activeTrade?.manifestDigest = digest
+        try await applyLocalReceipt(localReceipt)
+        if activeTrade?.tradeID == receipt.tradeID {
+            activeTrade?.receipt = localReceipt
+            activeTrade?.status = .committed
+            activeTrade?.manifestDigest = digest
+        }
         _ = try await request("/v1/trades/\(path(receipt.tradeID))/ack", method: "POST",
                               body: ManifestBody(manifestDigest: digest))
         pending.removeValue(forKey: receipt.tradeID)

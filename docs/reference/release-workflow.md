@@ -1,52 +1,53 @@
----
-summary: "릴리스 실행 절차 — 문서·에셋 갱신 의무, 스크린샷 재생성 방법, release.sh 게이트의 함정."
-read_when:
-  - 버전을 배포할 때 (자연어 트리거 포함: "배포해줘", "릴리스 올려줘", "패치 배포")
-  - release.sh 가 문서·에셋 경고나 하드 게이트로 중단됐을 때
-  - UI 를 바꿔 스크린샷·랜딩을 갱신해야 할 때
----
+# Trading fork releases
 
-# 릴리스 실행 절차
+This fork uses GitHub Releases in **sacrezm/PokeTokenBar**. No upstream tap,
+Pages deployment, update server, or CI signing secrets are needed.
 
-버전 결정 규칙과 트리거는 `CLAUDE.md` §릴리스에 있다. 이 문서는 그 다음의 *실행 세부*를 담는다.
-체크리스트 원본은 `RELEASE.md`.
+## Publish
 
-## 1. 문서·이미지 갱신 (매 릴리스 필수 — "할까요?" 묻지 말고 무조건 한다)
-
-`./scripts/release.sh --check-only` 로 경고를 확인한 뒤 아래를 모두 반영한다.
-
-- **README.md/ko/ja**: 기능 목록·how-it-works·스크린샷 참조.
-- **랜딩(gh-pages orphan 브랜치) — 필수.** `git worktree add /tmp/ptb-ghpages gh-pages` → `index.html`
-  기능 카드(f#) + i18n 사전(en/ko/ja 동시·키 정합) 갱신 → 커밋 → `git push origin gh-pages` →
-  `git worktree remove`. (Pages 자동 재빌드. 커밋은 gh-pages log 모방 = `landing:` 프리픽스.)
-- **스크린샷(`assets/`)**: UI(`Sources/PokeTokenBar/UI/`) 변경 시 재생성. 기존 방식 = **HTML 렌더**
-  (팝오버 라이브 캡처 아님) — Chrome `--headless --screenshot --force-device-scale-factor=2` 로 다크
-  팝오버를 720px PNG 로 그린다. 애니 GIF(home)는 프레임 합성 후 `gifsicle -O3 --lossy` 로 최적화
-  (PIL 재인코딩 단독은 용량 팽창 주의). 언어별 이미지(`settings.png`/`-ko`/`-ja` 등) 각 README 참조.
-- homebrew-tap cask caveat.
-
-### 게이트의 함정
-
-- `release.sh` 문서검토는 *커밋된* 상태를 비교 → 스크린샷을 스테이징만 하면 경고 프롬프트가
-  여전히 뜬다. 미리 커밋하거나 프롬프트에 `y`(스테이징분이 release.sh line 93-94 에서 릴리스 커밋에 함께 담김).
-- **신규 기능 = 신규 에셋 (하드 게이트, 프롬프트로 못 넘김).** 직전 태그 이후 `Sources/**/UI/` 를 건드린
-  `feat:` 커밋이 있는데 `assets/` 에 **새로 추가된** 파일이 없으면 `release.sh` 가 중단한다
-  (**예외 없음** — 통과시키려면 에셋을 만들거나 커밋 타입을 바꿔야 한다). 기존 staleness 검사는 "에셋이 하나라도 바뀌었나"만
-  보기 때문에 **기존 스크린샷만 다시 그려도 통과**한다 — 2.5.0 에서 플로팅 펫이 이미지 없이 나간 경로가
-  정확히 이것이다(`settings.png` 를 갱신해 둔 탓에 조용히 통과). 갱신(stale)과 커버리지(신규)는 다른 질문이다.
-
-## 2. 실행
-
-릴리스 노트를 작성한 뒤 반드시 `main` 브랜치에서:
+Commit and push the intended changes to this fork's `main`, then run on the
+Mac that holds the existing signing identity:
 
 ```bash
-# 직전 릴리스 이후 변경을 요약해 노트 파일 작성
-PTB_NOTES_FILE=/tmp/ptb-notes.md ./scripts/release.sh <version>
+CODESIGN_IDENTITY="Your existing signing identity" ./scripts/release.sh 2.6.0
 ```
 
-스크립트가 test-gate → 문서검토 → 범프 → 빌드검증 → 커밋·push → GitHub Release → cask → Pages 를
-순서대로 수행한다.
+Replace the identity placeholder with the existing fork signing identity and the
+example version with a higher major.minor.patch. Other release machines must
+securely have the **same certificate and private key**, not create a replacement
+with the same name. Never put private keys or certificates containing private keys in Git.
 
-## 3. 검증
+The command checks the clean checkout and exact origin, runs the full test gate,
+bumps the bundled version, builds a universal Apple Silicon + Intel app, verifies
+its stable signature, and packages a ZIP. It then commits/pushes only the version
+bump, creates a draft release with the ZIP, and publishes it as Latest. It does
+not install the build or interrupt the running app. A build/test failure does
+not publish. A failure after creating the draft leaves it unpublished: inspect
+the existing draft and attached ZIP before publishing or retrying.
 
-완료 후 `brew upgrade --cask poke-token-bar` 로 실제 업그레이드 동작을 확인한다.
+There is no new Apple Developer enrollment/notarization setup here: releases
+remain self-signed like the current fork. Downloaded apps may require explicit
+approval in macOS Privacy & Security. Stable signing is not Apple notarization.
+
+## User flow
+
+The installed app checks the fork's latest stable release at launch and on
+popover opening, throttled to 30 minutes. Its existing banner opens the release.
+Users quit, replace the app in Applications, and reopen. Saves and trainer
+credentials are not part of the app ZIP and are not replaced. Settings offers a
+manual check, including skipped versions, and distinguishes failed checks from
+"up to date".
+
+Old builds that still point at upstream need one manual installation of the new
+fork-channel build. Do not use upstream Homebrew upgrade; it removes trading.
+
+## Verify a published release
+
+- Confirm the release is public, not a draft/prerelease, with the built app ZIP.
+- Check its version matches the app's CFBundleShortVersionString.
+- On an older fork-channel build, use Settings → Updates → Check now.
+- Follow Download and confirm it opens this fork, not upstream.
+- Quit and replace the app; check the version and retained collection on restart.
+
+GitHub documentation: [Releases](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases)
+and [latest-release API](https://docs.github.com/en/rest/releases/releases#get-the-latest-release).
