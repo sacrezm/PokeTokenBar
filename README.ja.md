@@ -1,3 +1,5 @@
+> このリポジトリは、友達とのリモート交換を追加したフォークです。インストールと更新には[このフォークのリリース](https://github.com/sacrezm/PokeTokenBar/releases/latest)をご利用ください。v2.6.1では完了した交換の招待が一覧から消え、再度開けなくなります。**Done**で完了画面を閉じられ、受信データの復旧は引き続き可能です。詳細は[英語版のフォーク案内](README.md#about-this-fork)をご覧ください。以下は元のプロジェクトの案内です。
+
 <div align="center">
 
 <img src="assets/icon.png" width="128" alt="PokeTokenBar アイコン">

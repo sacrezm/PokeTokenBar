@@ -191,12 +191,16 @@ final class TradingFeature {
         heldInventory = state.heldInventory
         receivedInventory = state.receivedInventory
         transferredIDs = state.transferredIDs
+        // The v1 receipt ID is the trade ID. Reuse the durable ownership ledger,
+        // including receipts applied before this fix, instead of a second cache.
+        invites.removeAll { state.appliedReceiptIDs.contains($0.tradeID) }
     }
 
     /// Notify only after the durable local write, and never replay an applied receipt.
     func applyLocalReceipt(_ receipt: TradeReceipt) async throws {
         let result = try await sidecar.apply(receipt)
         try await refreshLocalInventory()
+        invites.removeAll { $0.tradeID == receipt.tradeID }
         if result == .applied {
             completion = receipt
             let received = receivedPokemon(for: receipt)
@@ -295,7 +299,10 @@ final class TradingFeature {
         try requireRegistered()
         let data = try await request("/v1/trades/invites", method: "GET")
         let result = try decode(InvitesWire.self, from: data)
-        invites = try result.invites.map(tradingInvite)
+        let completed = try await sidecar.state().appliedReceiptIDs
+        invites = try result.invites.map(tradingInvite).filter {
+            ($0.status == "pending" || $0.status == "accepted") && !completed.contains($0.tradeID)
+        }
         for invite in invites {
             if invite.status == "pending", invite.inviteeID == trainerID {
                 publish(TradingActivity(id: "invite:" + invite.id, title: "Trade request",
@@ -324,6 +331,13 @@ final class TradingFeature {
 
     func openTrade(tradeID: String, peer: TradingFriend) async throws {
         try requireRegistered()
+        // A stale Open button must never create a fresh session for a saved trade.
+        if try await sidecar.state().appliedReceiptIDs.contains(tradeID) {
+            invites.removeAll { $0.tradeID == tradeID }
+            if activeTrade?.tradeID == tradeID { closeTrade() }
+            return
+        }
+        if activeTrade?.tradeID == tradeID, activeTrade?.status != .failed { return }
         closeTrade()
         activeTrade = ActiveTrade(tradeID: tradeID, peer: peer, localPokemon: nil,
                                   peerPokemon: nil, localOffer: nil, peerOffer: nil,
@@ -347,6 +361,7 @@ final class TradingFeature {
         socket?.cancel(with: .normalClosure, reason: nil)
         socket = nil
         activeTrade = nil
+        lastError = nil
     }
 
     func offer(_ pokemon: TradePokemon) async throws {

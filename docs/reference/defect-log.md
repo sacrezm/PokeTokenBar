@@ -14,6 +14,23 @@ read_when:
 `CLAUDE.md` §결함 대응 프로토콜의 4단계(근본원인 → 부류 스윕 → 회귀 테스트 → 영구 캡처)를 거쳐
 남은 규칙들이다. 각 항목은 실제로 겪은 회귀에 묶여 있다.
 
+## Trading invitation lifecycle (2026-09-04)
+
+- A successful trade left its invitation `accepted`, and the list endpoint read only
+  invitation status. The app therefore offered **Open** for an already committed
+  trade; the WebSocket upgrade was rejected and appeared as a failed trade.
+  Derive actionable invitations from the authoritative trade status, including
+  existing records, rather than adding a second completion flag or deleting receipts.
+- The server test previously ended after receipt cleanup, while the Swift completion
+  test checked inventory and notifications in isolation. Neither reloaded invitations.
+  Regression coverage now follows real WebSocket commit → receipt recovery → both
+  acknowledgements → invitation refresh → rejected reopen → a new trade. The client
+  test covers immediate removal, stale responses, restart, and the durable reopen guard.
+  Both tests failed on the original implementation before the fix.
+- Scope sweep: invitation listing, accept, WebSocket open, local receipt application,
+  refresh/restart, and the active-trade view. Keep acknowledgement recovery independent
+  of visibility; preserve existing save formats and Original Trainer metadata.
+
 ## 판정·데이터
 
 - **옵셔널 tautology.** 옵셔널 필드라도 *생산자가 항상 채우면* `x != nil` 은 항상 참이다. "값이 있나"는
