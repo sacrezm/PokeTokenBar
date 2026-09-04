@@ -97,23 +97,57 @@ final class ForkUpdateTests: XCTestCase {
         await checker.check()
     }
 
-    func testDownloadOpensOnlyTheForkReleaseWithoutAnInstaller() async {
+    func testUpdateUsesInAppInstallerOnlyWhenReleaseIsAvailable() async {
         let name = "ForkUpdateTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name); ForkReleaseProtocol.handler = nil }
         let config = URLSessionConfiguration.ephemeral
         config.protocolClasses = [ForkReleaseProtocol.self]
-        var opened: [URL] = []
+        var installs = 0
         let checker = UpdateChecker(currentVersion: "2.5.3", session: URLSession(configuration: config),
-                                    defaults: defaults, openURL: { opened.append($0) })
+                                    defaults: defaults, installUpdate: { installs += 1 })
         checker.applyUpdate()
-        XCTAssertTrue(opened.isEmpty)
+        XCTAssertEqual(installs, 0)
         let data = release()
         ForkReleaseProtocol.handler = { _ in (200, data) }
         await checker.check()
         checker.applyUpdate()
-        XCTAssertEqual(opened.map(\.absoluteString), ["https://github.com/sacrezm/PokeTokenBar/releases/tag/v2.6.0"])
+        XCTAssertEqual(installs, 1)
     }
+
+    func testPeriodicDiscoveryFindsLaterReleaseWithoutPopoverOrAutomaticInstall() async {
+        let name = "ForkUpdateTests.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name); ForkReleaseProtocol.handler = nil }
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [ForkReleaseProtocol.self]
+        var installs = 0
+        let checker = UpdateChecker(currentVersion: "2.5.3", session: URLSession(configuration: config),
+                                    defaults: defaults, installUpdate: { installs += 1 })
+        let first = release(tag: "v2.5.3")
+        let second = release()
+        let counter = RequestCounter()
+        ForkReleaseProtocol.handler = { _ in (200, counter.next() == 1 ? first : second) }
+        checker.startAutomaticChecks(interval: 0.02)
+        checker.startAutomaticChecks(interval: 0.02) // Must not start a second polling loop.
+        // Observation callbacks are willSet signals, not completed discoveries;
+        // older runtimes also signal the first nil -> nil assignment.
+        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+        while checker.available == nil, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
+        checker.stopAutomaticChecks()
+        XCTAssertEqual(checker.available?.version, "2.6.0")
+        XCTAssertEqual(installs, 0, "Discovery must never quit the app or install silently")
+        XCTAssertGreaterThanOrEqual(counter.value, 2)
+    }
+}
+
+private final class RequestCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var value: Int { lock.lock(); defer { lock.unlock() }; return count }
+    func next() -> Int { lock.lock(); defer { lock.unlock() }; count += 1; return count }
 }
 
 private final class ForkReleaseProtocol: URLProtocol {

@@ -24,6 +24,12 @@
 
 This is an independently maintained fork of [chattymin/PokeTokenBar](https://github.com/chattymin/PokeTokenBar), adding **remote Pokémon trading**. Credit for the original app, token tracking, and Pokémon companion goes to the upstream project.
 
+**In-app updates:** checks run at launch and every hour, including while the popover
+is closed. A banner, Settings, and a menu-bar arrow announce a new version.
+**Update & Restart** uses Sparkle to download, verify, install and relaunch, keeping
+your Pokémon and trainer data. Updates require your confirmation; they are not installed
+silently. Builds through 2.6.1 need one final manual installation to gain this updater.
+
 The trading beta adds a **Trade** tab:
 
 - Choose a trainer name and exchange friend codes. Both players must accept the friendship before trading.
@@ -194,9 +200,9 @@ Download the app ZIP from [this fork's releases](https://github.com/sacrezm/Poke
 
 ### Updates for this fork
 
-The app checks **sacrezm/PokeTokenBar**, never upstream, at launch and when you open the popover (at most once every 30 minutes). A newer stable release appears in the existing update banner. **Download** opens its GitHub release; quit the app, download/unzip the new app, replace it in `/Applications`, and reopen it. Pokémon, trainer identity and preferences live outside the app bundle and are retained. Do not use an app-cleaner/uninstaller that deletes application data.
+The app checks **sacrezm/PokeTokenBar**, never upstream, at launch, hourly while running (even with the popover closed), and when you open the popover (throttled). A newer stable release appears in the update banner, Settings, and as an arrow in the menu bar. **Update & Restart** opens Sparkle's native update window to download, verify, install and relaunch the app. Pokémon, trainer identity and preferences live outside the app bundle and are retained. Do not use an app-cleaner/uninstaller that deletes application data.
 
-Use **Settings → Updates → Check now** to check manually, including a version you previously dismissed. No automatic installer, background updater service, GitHub login, or separate hosting is needed. Existing builds that still check upstream need this fork-channel build installed once manually.
+Use **Settings → Updates → Check now** to check manually, including a version you previously dismissed. Installation requires your confirmation; checks do not silently install anything. No GitHub login or separate hosting is needed. Builds up to v2.6.1 need one final manual installation of a release containing this updater before in-app installation becomes available.
 
 Maintainers: see [the small release workflow](docs/reference/release-workflow.md). Publishing a GitHub Release with a higher version makes it discoverable; a push to `main` alone does not.
 
@@ -255,13 +261,14 @@ swift test                   # unit tests
 | [PokéAPI](https://pokeapi.co/) — `pokeapi.co`, `graphql.pokeapi.co` | Pokémon species &amp; evolution | runtime fetch; cached locally, never bundled |
 | `raw.githubusercontent.com/PokeAPI/sprites` | Pokémon &amp; item sprites | runtime fetch; cached under Application Support, never bundled |
 | `status.claude.com`, `status.openai.com` | provider incident banner | statuspage summary; display only — turn it off in Settings |
-| `api.github.com` | update check | latest release tag; on launch and when the popover opens |
+| `api.github.com` | update check | latest release tag; at launch, hourly, and when the popover opens (throttled) |
+| `github.com` and GitHub release-download hosts | app updates | signed appcast and app archive, fetched when you choose to update |
 
 If a provider's logs live **outside** those built-in paths, add the folder in **Settings → Advanced → Additional scan folders**. Pick the provider first — each folder is parsed only by that provider, so pointing a Gemini field at Claude logs would mis-attribute tokens. Extra folders are added to the built-in locations; they never replace them.
 
 ## Privacy & permissions
 
-The upstream usage-tracking behavior is described below. This fork additionally connects to your chosen trading relay when you use Trade: the relay stores trainer profiles, public keys, friendship and trade metadata, and encrypted trade payloads. Trading credentials and private keys stay in macOS Keychain. Pokémon contents are encrypted, but social metadata is visible to the relay.
+The upstream usage-tracking behavior is described below. This fork additionally connects to your chosen trading relay when you use Trade: the relay stores trainer profiles, public keys, friendship and trade metadata, and encrypted trade payloads. Trading credentials and private keys stay in macOS Keychain. Pokémon contents are encrypted, but social metadata is visible to the relay. In-app updates also contact GitHub and its release-download hosts for the signed update feed and app archive; they do not upload your Pokémon or usage data.
 
 - **On-device first.** Token usage is read directly from local Claude Code, Codex, Gemini CLI, Antigravity, OpenCode, Hermes Agent, Cursor, Grok CLI, Copilot CLI, Kiro CLI, Pi Agent, and omp data. The app never uploads usage or runs model turns.
 - **Outbound requests.** The app is not fully offline. It talks to twelve hosts: `pokeapi.co` and `graphql.pokeapi.co` (species/evolution), `raw.githubusercontent.com` (sprites), `api.anthropic.com` (Claude official limits), `claude.ai` (Claude official limits when you save an optional claude.ai session key in Settings — the key only, no prompts or project paths), `cursor.com` (Cursor usage summary when you are signed into Cursor locally — session credential only, no prompts or project paths), `cloudcode-pa.googleapis.com` and `daily-cloudcode-pa.googleapis.com` (Antigravity official limits) plus `oauth2.googleapis.com` (their token refresh), `status.claude.com` and `status.openai.com` (incident banner — off switch in Settings), and `api.github.com` (update check). **None of them carry your usage logs, prompts, or project paths** — only the request itself (Cursor sends your session cookie to fetch your own usage rows, same as the web dashboard).

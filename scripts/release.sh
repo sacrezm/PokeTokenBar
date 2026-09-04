@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Publish this trading fork from a clean, pushed main checkout on the signing Mac.
-# CODESIGN_IDENTITY="Your existing signing identity" ./scripts/release.sh 2.6.0
+# See docs/reference/release-workflow.md for the signing identity and 1Password reference.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -25,6 +25,9 @@ awk -v a="$VERSION" -v b="$PREVIOUS" 'BEGIN {
   exit 1
 }' || { echo "Version must be newer than $PREVIOUS"; exit 1; }
 : "${CODESIGN_IDENTITY:?Set CODESIGN_IDENTITY to the same identity used for previous fork builds}"
+: "${PTB_SPARKLE_KEY_REF:?Set PTB_SPARKLE_KEY_REF to the 1Password reference for the Sparkle signing seed}"
+[[ "$PTB_SPARKLE_KEY_REF" == op://* ]] || { echo "Sparkle key must come from 1Password"; exit 1; }
+op read "$PTB_SPARKLE_KEY_REF" >/dev/null
 security find-identity -v -p codesigning | grep -F "\"$CODESIGN_IDENTITY\"" >/dev/null \
   || { echo "Signing identity unavailable; no ad-hoc releases"; exit 1; }
 gh repo view "$REPO" --json visibility --jq .visibility | grep -qx PUBLIC \
@@ -47,11 +50,21 @@ ZIP="build/PokeTokenBar-v$VERSION.zip"
 [[ ! -e "$ZIP" ]] || { echo "$ZIP already exists; inspect it before retrying"; exit 1; }
 ditto -c -k --keepParent "$APP" "$ZIP"
 
+# Publish a signed Sparkle feed beside the archive. Private keys never enter Git
+# or plaintext files. The private signing seed is read directly from 1Password.
+FEED_DIR="build/updates-v$VERSION"
+[[ ! -e "$FEED_DIR" ]] || { echo "$FEED_DIR already exists; inspect before retrying"; exit 1; }
+mkdir -p "$FEED_DIR"
+ditto "$ZIP" "$FEED_DIR/$(basename "$ZIP")"
+APPCAST_ARGS=(--maximum-deltas 0 --download-url-prefix "https://github.com/$REPO/releases/download/v$VERSION/" "$FEED_DIR")
+op read "$PTB_SPARKLE_KEY_REF" | .build/artifacts/sparkle/Sparkle/bin/generate_appcast --ed-key-file - "${APPCAST_ARGS[@]}"
+[[ -s "$FEED_DIR/appcast.xml" ]] || { echo "Signed update feed missing"; exit 1; }
+
 git add scripts/build-app.sh
 git commit -m "release: trading fork v$VERSION"
 git push origin main
 # A draft prevents update alerts before the binary upload completes.
-gh release create "v$VERSION" "$ZIP" --repo "$REPO" --target "$(git rev-parse HEAD)" \
+gh release create "v$VERSION" "$ZIP" "$FEED_DIR/appcast.xml" --repo "$REPO" --target "$(git rev-parse HEAD)" \
   --draft --title "PokeTokenBar Trading v$VERSION" --generate-notes
 gh release edit "v$VERSION" --repo "$REPO" --draft=false --latest
 echo "Published https://github.com/$REPO/releases/tag/v$VERSION"

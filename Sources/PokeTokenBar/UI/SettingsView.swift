@@ -334,7 +334,7 @@ struct SettingsView: View {
         settingsSection(l.updateSectionTitle) {
             Text("Trading fork · GitHub Releases")
                 .font(.caption).foregroundStyle(.secondary)
-            Text("Download the new app, quit this one, and replace it in Applications. Your Pokémon stay on this Mac.")
+            Text("Checks at launch and every hour. Update & Restart downloads and installs the update here. Your Pokémon stay on this Mac.")
                 .font(.caption2).foregroundStyle(.secondary)
             toggleRow(l.updateNotificationsLabel, $store.updateNotificationsEnabled)
             Divider()
@@ -358,7 +358,7 @@ struct SettingsView: View {
                 .disabled(isCheckingUpdate)
             }
             // 확인 결과 — 알림을 꺼둔 사용자도 여기서 새 버전을 알고 바로 적용할 수 있게 업데이트 버튼을 함께 노출.
-            if didCheckUpdate, !isCheckingUpdate {
+            if didCheckUpdate || updater.available != nil, !isCheckingUpdate {
                 Divider()
                 groupRow {
                     if updater.checkFailed {
@@ -370,7 +370,7 @@ struct SettingsView: View {
                     } else if let version = updater.available?.version {
                         Text(l.updateFound(version)).font(.caption).foregroundStyle(.orange)
                         Spacer()
-                        Button("Download") { updater.applyUpdate() }.controlSize(.small)
+                        Button("Update & Restart") { updater.applyUpdate() }.controlSize(.small)
                     } else {
                         Text(l.upToDate(Self.appVersion)).font(.caption).foregroundStyle(.secondary)
                         Spacer()
