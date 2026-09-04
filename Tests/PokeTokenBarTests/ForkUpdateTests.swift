@@ -1,5 +1,4 @@
 import XCTest
-import Observation
 @testable import PokeTokenBar
 
 @MainActor
@@ -129,11 +128,14 @@ final class ForkUpdateTests: XCTestCase {
         let second = release()
         let counter = RequestCounter()
         ForkReleaseProtocol.handler = { _ in (200, counter.next() == 1 ? first : second) }
-        let discovered = expectation(description: "A later periodic check publishes the new version")
-        withObservationTracking { _ = checker.available } onChange: { discovered.fulfill() }
         checker.startAutomaticChecks(interval: 0.02)
         checker.startAutomaticChecks(interval: 0.02) // Must not start a second polling loop.
-        await fulfillment(of: [discovered], timeout: 2)
+        // Observation callbacks are willSet signals, not completed discoveries;
+        // older runtimes also signal the first nil -> nil assignment.
+        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+        while checker.available == nil, ContinuousClock.now < deadline {
+            try? await Task.sleep(for: .milliseconds(10))
+        }
         checker.stopAutomaticChecks()
         XCTAssertEqual(checker.available?.version, "2.6.0")
         XCTAssertEqual(installs, 0, "Discovery must never quit the app or install silently")

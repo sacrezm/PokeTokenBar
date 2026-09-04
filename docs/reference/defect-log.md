@@ -612,6 +612,14 @@ read_when:
 
 ## 프로세스 제어·업데이트
 
+- **Wait for the domain result, not an Observation willSet callback.** The periodic
+  update test stopped after one request on the macOS 15 CI runner: the initial
+  `available = nil` assignment triggered its one-shot observation expectation.
+  The newer local runtime suppressed that equal-value signal, hiding the test bug.
+  The regression test now waits with a bounded deadline for a non-nil release,
+  still asserting two requests and zero automatic installations. CI must exercise
+  the supported older runtime as well as local tests (PR #4, 2026-09-04).
+
 - **`pgrep -x <name>` 은 실행 파일의 정체성 검사이지, 기다리는 특정 프로세스에 대한 검사가 아니다.**
   중복 인스턴스가 떠 있는 동안 실행될 수 있는 모든 wait-for-exit 루프는 PID를 받아야 한다. `UpdateChecker`가
   자동 업데이트 시 앱 종료를 기다릴 때 `pgrep -x PokeTokenBar`를 쓰면, 중복 인스턴스가 살아있는 동안 루프를
