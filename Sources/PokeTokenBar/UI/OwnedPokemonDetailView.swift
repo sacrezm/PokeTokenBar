@@ -13,7 +13,7 @@ struct OwnedPokemonDetailView: View {
             Button(action: onBack) { Label("Owned Pokémon", systemImage: "chevron.left") }
                 .buttonStyle(.borderless)
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 22) {
                     HStack(spacing: 12) {
                         SpriteView(speciesID: pokemon.speciesID, size: 80,
                                    animated: !reduceMotion, shiny: pokemon.isShiny)
@@ -21,27 +21,34 @@ struct OwnedPokemonDetailView: View {
                             Text(pokemon.name).font(.headline)
                             Text("#\(pokemon.speciesID) · \(pokemon.generationLabel)")
                                 .font(.caption).foregroundStyle(.secondary)
+                            Text("\(L(language).rarityLabel(pokemon.rarity)) · \(pokemon.nature?.name(language) ?? "Nature unknown")\(pokemon.isShiny ? " · Shiny ✨" : "")")
+                                .font(.caption).foregroundStyle(.secondary)
                         }
                     }
                     ProgressionSummaryView(progression: pokemon.progression, compact: true)
-                    Text("Level progression is separate from the catching evolution cycle.")
-                        .font(.caption2).foregroundStyle(.secondary)
                     Divider()
-                    detail("Original Trainer", pokemon.originalTrainerLabel)
-                    detail("Status", pokemon.isRaising ? "Raising now" : "Owned")
-                    detail("Rarity", L(language).rarityLabel(pokemon.rarity))
-                    detail("Nature", pokemon.nature?.name(language) ?? "Not recorded")
-                    detail("Shiny", pokemon.isShiny ? "Yes ✨" : "No")
-                    detail("Recorded on", pokemon.recordedAt?.formatted(date: .abbreviated, time: .shortened) ?? "Not recorded")
-                    Text("This is the saved collection date, not necessarily the hatch or trade date.")
-                        .font(.caption2).foregroundStyle(.secondary)
-                    if !pokemon.isRaising {
-                        Divider()
-                        detail("Pokémon ID", pokemon.id)
-                        if let trainerID = pokemon.originalTrainerID {
-                            detail("Original Trainer ID", trainerID)
-                        }
+                    HStack {
+                        Text(pokemon.isRaising ? "Raising now" : "In your collection")
+                        Spacer()
+                        if pokemon.isShiny { Image(systemName: "sparkles") }
                     }
+                    .font(.callout).foregroundStyle(.secondary)
+                    DisclosureGroup("History & identity") {
+                        VStack(alignment: .leading, spacing: 14) {
+                            detail("Original Trainer", pokemon.originalTrainerLabel)
+                            detail("Recorded on", pokemon.recordedAt?.formatted(date: .abbreviated, time: .shortened) ?? "Not recorded")
+                            Text("Collection record date, not necessarily the hatch or trade date.")
+                                .font(.caption2).foregroundStyle(.secondary)
+                            if !pokemon.isRaising {
+                                detail("Pokémon ID", pokemon.id)
+                                if let trainerID = pokemon.originalTrainerID {
+                                    detail("Original Trainer ID", trainerID)
+                                }
+                            }
+                        }
+                        .padding(.top, 12)
+                    }
+                    .font(.caption).foregroundStyle(.secondary)
                 }
                 .textSelection(.enabled)
             }

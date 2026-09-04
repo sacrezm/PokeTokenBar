@@ -21,6 +21,7 @@ struct L {
 
     // MARK: 탭
     var home: String { t("홈", "Home", "ホーム", "Inicio", "Accueil", "Início", "Startseite") }
+    var usageTab: String { t("사용량", "Usage", "使用量", "Uso", "Usage", "Uso", "Nutzung") }
     /// 상위 탭 이름 — 안에서 도감/포획 로그를 세그먼트로 전환하므로 둘을 아우르는 말이어야 한다.
     /// (ko 가 "도감"이면 탭과 세그먼트가 같은 이름이 돼 en/ja 의 Collection/コレクション 과도 어긋난다.)
     var collection: String { t("컬렉션", "Collection", "コレクション", "Colección", "Collection", "Coleção", "Sammlung") }

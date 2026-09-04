@@ -770,13 +770,15 @@ struct CollectionView: View {
     var body: some View {
         @Bindable var nav = navigation
         VStack(alignment: .leading, spacing: 8) {
-            Picker("Collection", selection: $nav.collectionTab) {
-                Text("Owned").tag(CollectionTab.owned)
-                Text(store.l.dexTitle).tag(CollectionTab.pokedex)
-                Text(store.l.catchLogTitle).tag(CollectionTab.catchLog)
+            if selectedOwnedID == nil {
+                Picker("Collection", selection: $nav.collectionTab) {
+                    Text("Owned").tag(CollectionTab.owned)
+                    Text(store.l.dexTitle).tag(CollectionTab.pokedex)
+                    Text(store.l.catchLogTitle).tag(CollectionTab.catchLog)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
             }
-            .pickerStyle(.segmented)
-            .labelsHidden()
             switch nav.collectionTab {
             case .owned: ownedCollection
             case .pokedex:

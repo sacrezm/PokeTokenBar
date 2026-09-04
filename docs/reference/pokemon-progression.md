@@ -5,6 +5,12 @@ capture or evolution formulas. Trainer battles and exploration are not implement
 
 ## Daily loop
 
+Open **Pokémon** and select Catch, Train or Balanced beside **Activity**.
+These are activity modes within one destination, not separate navigation tabs.
+The installed-app layout keeps token statistics in a separate **Usage** tab.
+EV breakdowns expand under **Effort values**; rules are behind the help button.
+Collection details prioritize level progress, with provenance under **History & identity**.
+
 1. **Catch**: your normal AI usage incubates an egg, raises its Pokémon through the
    existing evolution line, then keeps the completed individual and starts a new egg.
 2. **Train**: select an owned Pokémon and an EV focus. New usage gives that individual
@@ -91,7 +97,7 @@ use matching progression-capable builds for trades.
 
 ## Manual playtest
 
-- Open Train, choose a Pokémon, change mode and EV focus, then check its XP/EVs
+- Open Pokémon, select Train, choose a Pokémon and EV focus, then check its XP/EVs
   after normal usage refreshes. Confirm the catching meter pauses in Train.
 - Use one Rare Candy and check +1 level, no EV change, and one fewer candy.
 - Choose Balanced and confirm both progress paths move.
@@ -123,3 +129,13 @@ login-item migration or updater checks. The installed stable app/save is untouch
   the empty picker label is a disabled placeholder, not a "train nobody" action.
 - The existing REST fallback's different absolute odds are retained and disclosed
   above. No live relay mutation, release, push or installed-app replacement was done.
+
+### UI follow-up
+
+- Unified Catch / Train / Balanced in the Pokémon destination; Usage remains separate.
+- Replaced persistent EV grids and provenance fields with expandable details, moved
+  rules into contextual help, and reduced sandbox controls to a footer.
+- Checked all three modes, EV expansion, help, candy confirmation/cancel, collection
+  details and back navigation in the native sandbox. Its launch performs a zero-token
+  refresh so restored Pokémon names/evolution lines are ready without a test-button click.
+- Full follow-up suite: 996 tests, 10 skipped, zero failures.

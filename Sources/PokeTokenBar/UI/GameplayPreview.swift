@@ -28,7 +28,7 @@ enum GameplayPreview {
         let store = CompanionStore(provider: PreviewPokemonProvider(), fileURL: url,
                                    dittoDisguiseRollingEnabled: false)
         let content = GameplayPreviewView(store: store)
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 760),
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 660),
                               styleMask: [.titled, .closable, .miniaturizable],
                               backing: .buffered, defer: false)
         window.title = "Pokémon Progression — Sandbox"
@@ -74,46 +74,39 @@ private struct GameplayPreviewView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Local playtest · isolated save", systemImage: "testtube.2")
-                .font(.headline).foregroundStyle(.orange)
-            Text("Simulated tokens only. Your installed app, real usage and Pokémon are untouched.")
-                .font(.caption).foregroundStyle(.secondary)
-            HStack {
-                Button("+100K tokens") { addTokens(100_000) }
-                Button("+1M tokens") { addTokens(1_000_000) }
-                Button("+25M tokens") { addTokens(25_000_000) }
-            }
-            .controlSize(.small)
             Picker("Page", selection: $nav.tab) {
-                Text("Catch").tag(PopoverTab.home)
-                Text("Train").tag(PopoverTab.train)
+                Text("Pokémon").tag(PopoverTab.home)
                 Text("Shop").tag(PopoverTab.shop)
                 Text("Bag").tag(PopoverTab.bag)
-                Text("Owned").tag(PopoverTab.collection)
-            }.pickerStyle(.segmented)
+                Text("Collection").tag(PopoverTab.collection)
+            }.pickerStyle(.segmented).labelsHidden()
             Group {
                 switch nav.tab {
-                case .home:
-                    VStack(alignment: .leading, spacing: 12) {
-                        CompanionHeader(store: store)
-                        Text("Mode: \(store.trainingMode.rawValue). Change it in Train.")
-                        Text("The catching meter evolves your Pokémon and starts a fresh egg after completion. Train pauses that meter; Balanced splits tokens equally.")
-                            .font(.caption).foregroundStyle(.secondary)
-                        Spacer()
-                    }
-                case .train: TrainingView(store: store)
+                case .home: PokemonGameplayView(store: store)
                 case .shop: ShopView(store: store, nav: nav)
                 case .bag: BagView(store: store, nav: nav)
                 case .collection: CollectionView(store: store, navigation: nav)
-                case .trade: EmptyView()
+                case .trade, .usage: EmptyView()
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            Text("Preview data persists here. Close this window or quit this app to finish.")
-                .font(.caption2).foregroundStyle(.secondary)
+            Divider()
+            HStack {
+                Label("Sandbox", systemImage: "testtube.2")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .help("Simulated tokens and a separate save. Your installed app, real usage and Pokémon are untouched.")
+                Spacer()
+                Button("+100K") { addTokens(100_000) }.accessibilityLabel("Add 100K simulated tokens")
+                Button("+1M") { addTokens(1_000_000) }.accessibilityLabel("Add 1M simulated tokens")
+                Button("+25M") { addTokens(25_000_000) }.accessibilityLabel("Add 25M simulated tokens")
+            }
+            .controlSize(.small)
         }
         .padding(16)
-        .frame(width: 420, height: 760)
+        .frame(width: 420, height: 660)
+        // Restore the active evolution line just as a real usage refresh does,
+        // without crediting any simulated tokens on launch.
+        .task { addTokens(0) }
     }
 
     private func addTokens(_ delta: Int) {

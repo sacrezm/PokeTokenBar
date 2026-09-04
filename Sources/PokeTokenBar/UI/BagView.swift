@@ -131,14 +131,10 @@ private struct ItemCard: View {
         }
     }
 
-    /// 사용 후 해당 피드백이 보이는 탭으로 전환한다. 진화/졸업 연출·"+XP"·성격 변경 토스트는
-    /// Home 의 CompanionHeader 에서 재생된다.
+    /// All Pokémon item actions return to the unified gameplay destination.
     private func useNow() {
         confirming = false
         performUse()
-        switch kind {
-        case .rareCandy: nav.tab = .train
-        case .mint, .shinyCharm: nav.tab = .home
-        }
+        nav.tab = .home
     }
 }
