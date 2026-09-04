@@ -28,7 +28,8 @@ This is an independently maintained fork of [chattymin/PokeTokenBar](https://git
 is closed. A banner, Settings, and a menu-bar arrow announce a new version.
 **Update & Restart** uses Sparkle to download, verify, install and relaunch, keeping
 your Pokémon and trainer data. Updates require your confirmation; they are not installed
-silently. Builds through 2.6.1 need one final manual installation to gain this updater.
+silently. Builds through 2.6.2 need one final manual installation of 2.6.3 or later
+(2.6.2 had an updater startup configuration error).
 
 The trading beta adds a **Trade** tab:
 
@@ -202,7 +203,7 @@ Download the app ZIP from [this fork's releases](https://github.com/sacrezm/Poke
 
 The app checks **sacrezm/PokeTokenBar**, never upstream, at launch, hourly while running (even with the popover closed), and when you open the popover (throttled). A newer stable release appears in the update banner, Settings, and as an arrow in the menu bar. **Update & Restart** opens Sparkle's native update window to download, verify, install and relaunch the app. Pokémon, trainer identity and preferences live outside the app bundle and are retained. Do not use an app-cleaner/uninstaller that deletes application data.
 
-Use **Settings → Updates → Check now** to check manually, including a version you previously dismissed. Installation requires your confirmation; checks do not silently install anything. No GitHub login or separate hosting is needed. Builds up to v2.6.1 need one final manual installation of a release containing this updater before in-app installation becomes available.
+Use **Settings → Updates → Check now** to check manually, including a version you previously dismissed. Clicking **Update & Restart** authorizes downloading, installation and relaunch in one action, with progress and cancellation shown in-app. Checks alone never install anything. No GitHub login or separate hosting is needed. Builds up to v2.6.2 need one final manual installation of v2.6.3 or later; v2.6.2 had an updater startup configuration error.
 
 Maintainers: see [the small release workflow](docs/reference/release-workflow.md). Publishing a GitHub Release with a higher version makes it discoverable; a push to `main` alone does not.
 

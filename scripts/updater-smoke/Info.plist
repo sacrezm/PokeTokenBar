@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+    <key>CFBundleIdentifier</key><string>dev.triple-tap.PokeTokenBarUpdaterSmoke</string>
+    <key>CFBundleName</key><string>PokeTokenBar Updater Smoke</string>
+    <key>CFBundleExecutable</key><string>UpdaterSmoke</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleVersion</key><string>1.0.0</string>
+    <key>CFBundleShortVersionString</key><string>1.0.0</string>
+    <key>LSMinimumSystemVersion</key><string>14.0</string>
+    <key>SUEnableAutomaticChecks</key><false/>
+    <key>SUAutomaticallyUpdate</key><false/>
+    <key>SUAllowsAutomaticUpdates</key><false/>
+    <key>SURequireSignedFeed</key><true/>
+    <key>SUVerifyUpdateBeforeExtraction</key><true/>
+    <key>SUFeedURL</key><string>http://127.0.0.1:18763/appcast.xml</string>
+    <key>SUPublicEDKey</key><string>configured-at-test-time</string>
+    <key>PTBSmokeResultPath</key><string>configured-at-test-time</string>
+    <!-- Localhost HTTP is only allowed in this disposable test app, never production. -->
+    <key>NSAppTransportSecurity</key><dict><key>NSAllowsArbitraryLoads</key><true/></dict>
+</dict></plist>

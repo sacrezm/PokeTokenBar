@@ -42,17 +42,32 @@ approval in macOS Privacy & Security. Stable signing is not Apple notarization.
 The installed app checks the fork's latest stable release at launch, every hour,
 and on popover opening (the latter throttled to 30 minutes). A persistent banner,
 Settings, and a menu-bar arrow show an available update. **Update & Restart** opens
-Sparkle's native update window inside the app: download, validate, install and relaunch.
+Sparkle's native progress window inside the app: download, validate, install and relaunch
+after that one click, with cancellation during download and errors shown in-app.
 Discovery never installs silently. Saves and trainer credentials are not part of the
 app ZIP and are not replaced. Settings offers a
 manual check, including skipped versions, and distinguishes failed checks from
 "up to date".
 
-Versions through 2.6.1 do not contain Sparkle and need one final manual installation
-of a Sparkle-enabled release. Subsequent updates use the in-app flow. No existing
+Versions through 2.6.1 do not contain Sparkle; 2.6.2 has an updater startup configuration
+error. These versions need one manual installation of 2.6.3 or later. Subsequent
+updates use the in-app flow. No existing
 release is overwritten. Do not use upstream Homebrew upgrade; it removes trading.
 
 ## Verify a published release
+
+Before publishing updater changes, run the real isolated install/relaunch test on
+the signing Mac (a GUI session is required):
+
+```bash
+CODESIGN_IDENTITY="Your existing signing identity" \
+PTB_SPARKLE_KEY_REF="op://AI/PokeTokenBar Sparkle update signing/password" \
+bash scripts/test-updater-e2e.sh
+```
+
+This uses a localhost-only signed feed and a disposable app under `Scratch`, with
+no user save or trading code. Both `SURequireSignedFeed` and
+`SUVerifyUpdateBeforeExtraction` must be enabled in the real bundle.
 
 - Confirm the release is public, not a draft/prerelease, with the app ZIP and signed `appcast.xml`.
 - Check its version matches the app's CFBundleShortVersionString.
